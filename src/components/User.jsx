@@ -14,7 +14,7 @@ let socket = null;
 const getSocket = () => {
     if (!socket) {
         socket = io(SOCKET_URL, {
-            path: "/tunnelix.io/socket.io",
+            path: "/database.io/socket.io",
             transports: ["websocket", "polling"],
             autoConnect: false,
             reconnectionAttempts: 5,
