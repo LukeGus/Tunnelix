@@ -8,14 +8,12 @@ const logger = {
     debug: (...args) => console.debug(`🚀 | 🔍 [${new Date().toISOString()}] DEBUG:`, ...args)
 };
 
-// Flag to prevent multiple shutdown attempts
 let isShuttingDown = false;
 
 (async () => {
     try {
         logger.info("Starting all backend servers...");
         
-        // Store server references for shutdown
         const servers = [
             database.server,
             sshServer
@@ -23,9 +21,7 @@ let isShuttingDown = false;
         
         logger.info("All servers started successfully");
 
-        // Handle shutdown signals
         const handleShutdown = async () => {
-            // Prevent multiple shutdown attempts
             if (isShuttingDown) {
                 logger.warn("Shutdown already in progress, please wait...");
                 return;
@@ -35,7 +31,6 @@ let isShuttingDown = false;
             logger.info("Shutting down servers...");
             
             try {
-                // Close all servers with a timeout
                 const closePromises = servers.map(server => {
                     if (server && typeof server.close === 'function') {
                         return Promise.race([
@@ -49,7 +44,6 @@ let isShuttingDown = false;
                     return Promise.resolve();
                 });
                 
-                // Wait for all servers to close or timeout
                 await Promise.all(closePromises);
                 
                 logger.info("All servers shut down successfully");
@@ -57,19 +51,16 @@ let isShuttingDown = false;
                 logger.error("Error during shutdown:", error);
             }
             
-            // Force exit after a short delay if still running
             setTimeout(() => {
                 logger.info("Forcing process exit");
                 process.exit(0);
             }, 500);
         };
 
-        // Register shutdown handlers
         process.on('SIGINT', handleShutdown);
         process.on('SIGTERM', handleShutdown);
         process.on('SIGHUP', handleShutdown);
         
-        // Handle uncaught exceptions
         process.on('uncaughtException', (error) => {
             logger.error("Uncaught exception:", error);
         });

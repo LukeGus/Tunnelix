@@ -7,7 +7,6 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// Logger setup
 const logger = {
     info: (...args) => console.log(`📦 | 🔧 [${new Date().toISOString()}] INFO:`, ...args),
     error: (...args) => console.error(`📦 | ❌ [${new Date().toISOString()}] ERROR:`, ...args),
@@ -15,13 +14,11 @@ const logger = {
     debug: (...args) => console.debug(`📦 | 🔍 [${new Date().toISOString()}] DEBUG:`, ...args)
 };
 
-// Create data directory if it doesn't exist
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// Load or create app settings
 const settingsFilePath = path.join(dataDir, 'settings.json');
 let appSettings = {
     accountCreationEnabled: true
@@ -37,7 +34,6 @@ if (fs.existsSync(settingsFilePath)) {
     fs.writeFileSync(settingsFilePath, JSON.stringify(appSettings, null, 2));
 }
 
-// Function to save settings to file
 const saveSettings = () => {
     try {
         fs.writeFileSync(settingsFilePath, JSON.stringify(appSettings, null, 2))
@@ -46,21 +42,17 @@ const saveSettings = () => {
     }
 };
 
-// Connect to SQLite database
 const dbPath = path.join(dataDir, 'tunnelix.db');
 const db = new Database(dbPath);
 logger.info(`Connected to SQLite database at ${dbPath}`);
 
-// Create HTTP server and Socket.io
 const server = http.createServer();
 const io = socketIo(server, {
     path: '/database.io/socket.io',
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-// Initialize database with required tables
 function initializeDatabase() {
-    // Users table
     db.prepare(`
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
@@ -71,7 +63,6 @@ function initializeDatabase() {
         )
     `).run();
     
-    // SSH Tunnels table
     db.prepare(`
         CREATE TABLE IF NOT EXISTS tunnels (
             id TEXT PRIMARY KEY,
@@ -84,7 +75,6 @@ function initializeDatabase() {
         )
     `).run();
     
-    // Tunnel sharing (user access) table
     db.prepare(`
         CREATE TABLE IF NOT EXISTS tunnel_users (
             tunnelId TEXT NOT NULL,
@@ -95,7 +85,6 @@ function initializeDatabase() {
         )
     `).run();
     
-    // Tunnel tags table
     db.prepare(`
         CREATE TABLE IF NOT EXISTS tunnel_tags (
             tunnelId TEXT NOT NULL,
@@ -105,7 +94,6 @@ function initializeDatabase() {
         )
     `).run();
 
-    // Check if isAdmin column exists in users table, add if not
     const userTableInfo = db.prepare(`PRAGMA table_info(users)`).all();
     const hasIsAdminColumn = userTableInfo.some(column => column.name === 'isAdmin');
     
@@ -116,10 +104,8 @@ function initializeDatabase() {
     logger.info('Database tables initialized');
 }
 
-// Initialize the database
 initializeDatabase();
 
-// Encryption and decryption utils
 const getEncryptionKey = (userId, sessionToken) => {
     const salt = process.env.SALT || 'default_salt';
     return crypto.scryptSync(`${userId}-${sessionToken}`, salt, 32);
@@ -154,7 +140,6 @@ const decryptData = (encryptedData, userId, sessionToken) => {
     }
 };
 
-// Add decrypt function to SQLite
 db.function('decrypt', (encryptedData, userId, sessionToken) => {
     try {
         return JSON.stringify(decryptData(encryptedData, userId, sessionToken));
@@ -164,9 +149,7 @@ db.function('decrypt', (encryptedData, userId, sessionToken) => {
     }
 });
 
-// Prepared SQL statements
 const statements = {
-    // User management statements
     findUserByUsername: db.prepare('SELECT * FROM users WHERE username = ?'),
     findUserBySessionToken: db.prepare('SELECT * FROM users WHERE sessionToken = ?'),
     findUserById: db.prepare('SELECT * FROM users WHERE id = ?'),
@@ -178,7 +161,6 @@ const statements = {
     findAllAdmins: db.prepare('SELECT id, username FROM users WHERE isAdmin = 1'),
     updateUserAdmin: db.prepare('UPDATE users SET isAdmin = ? WHERE username = ?'),
     
-    // Tunnel management statements
     createTunnel: db.prepare('INSERT INTO tunnels (id, name, config, createdBy, folder, isPinned) VALUES (?, ?, ?, ?, ?, ?)'),
     addTunnelUser: db.prepare('INSERT INTO tunnel_users (tunnelId, userId) VALUES (?, ?)'),
     addTunnelTag: db.prepare('INSERT INTO tunnel_tags (tunnelId, tag) VALUES (?, ?)'),
@@ -198,7 +180,6 @@ const statements = {
     checkTunnelSharing: db.prepare('SELECT * FROM tunnel_users WHERE tunnelId = ? AND userId = ?')
 };
 
-// Helper functions
 function generateId() {
     return crypto.randomBytes(16).toString('hex');
 }
@@ -206,17 +187,13 @@ function generateId() {
 function getTunnelWithDetails(tunnel, userId, sessionToken) {
     if (!tunnel) return null;
     
-    // Get users who have access to this tunnel
     const userIds = statements.findTunnelUsers.all(tunnel.id).map(row => row.userId);
     
-    // Get tunnel tags
     const tags = statements.findTunnelTags.all(tunnel.id).map(row => row.tag);
     
-    // Get creator information
     const createdBy = statements.findUserById.get(tunnel.createdBy);
     if (!createdBy) return null;
     
-    // Decrypt tunnel configuration
     const decryptedConfig = decryptData(tunnel.config, createdBy.id, createdBy.sessionToken);
     if (!decryptedConfig) return null;
     
@@ -232,9 +209,7 @@ function getTunnelWithDetails(tunnel, userId, sessionToken) {
 
 logger.info('Database is ready');
 
-// Socket.io event handlers
 io.on('connection', (socket) => {
-    // Create a new user
     socket.on('createUser', async ({ username, password, isAdmin }, callback) => {
         try {
             if (!appSettings.accountCreationEnabled) {
@@ -271,7 +246,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Login an existing user
     socket.on('loginUser', async ({ username, password, sessionToken }, callback) => {
         try {
             let user;
@@ -300,10 +274,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Create and login as a guest user
     socket.on('loginAsGuest', async (callback) => {
         try {
-            // Check if guest accounts are allowed
             if (!appSettings.accountCreationEnabled) {
                 const userCount = statements.countAllUsers.get().count;
                 if (userCount > 0) {
@@ -330,7 +302,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Verify a user's session token
     socket.on('verifySession', async ({ sessionToken }, callback) => {
         try {
             const user = statements.findUserBySessionToken.get(sessionToken);
@@ -349,7 +320,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Check if account creation is enabled
     socket.on('checkAccountCreationStatus', async (callback) => {
         try {
             const userCount = statements.countAllUsers.get().count;
@@ -365,7 +335,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Toggle account creation (admin only)
     socket.on('toggleAccountCreation', async ({ userId, sessionToken, enabled }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -384,7 +353,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Add admin privileges to a user (admin only)
     socket.on('addAdminUser', async ({ userId, sessionToken, targetUsername }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -410,7 +378,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Remove admin privileges from a user (admin only)
     socket.on('removeAdminUser', async ({ userId, sessionToken, targetUsername }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -418,7 +385,6 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Not authorized. You must be an admin to perform this action.' });
             }
 
-            // Don't allow removing the last admin
             const adminCount = statements.countAdminUsers.get().count;
             if (adminCount <= 1) {
                 return callback({ error: 'Cannot remove the last admin user from the system.' });
@@ -433,7 +399,6 @@ io.on('connection', (socket) => {
                 return callback({ error: `User "${targetUsername}" is not an admin.` });
             }
 
-            // Don't allow removing your own admin privileges
             if (targetUser.id === userId) {
                 return callback({ error: 'You cannot remove your own admin privileges.' });
             }
@@ -447,7 +412,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Get all admin users (admin only)
     socket.on('getAllAdmins', async ({ userId, sessionToken }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -464,7 +428,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Get all users (admin only)
     socket.on('getAllUsers', async ({ userId, sessionToken }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -481,7 +444,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Delete a user and all their data
     socket.on('deleteUser', async ({ userId, sessionToken, targetUserId = null }, callback) => {
         try {
             const requestingUser = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -489,16 +451,13 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
-            // Determine the user to delete
             const userToDeleteId = targetUserId || userId;
             
-            // If trying to delete another user, check admin privileges
             if (targetUserId && targetUserId !== userId) {
                 if (!requestingUser.isAdmin) {
                     return callback({ error: 'Not authorized to delete other users' });
                 }
                 
-                // Don't allow deleting the last admin
                 const userToDelete = statements.findUserById.get(targetUserId);
                 if (userToDelete && userToDelete.isAdmin) {
                     const adminCount = statements.countAdminUsers.get().count;
@@ -508,9 +467,7 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // Transaction to delete user and all related data
             const db_transaction = db.transaction(() => {
-                // Find and delete all tunnels created by this user
                 const tunnels = statements.findTunnelsByCreator.all(userToDeleteId);
                 
                 for (const tunnel of tunnels) {
@@ -519,13 +476,11 @@ io.on('connection', (socket) => {
                     statements.deleteTunnel.run(tunnel.id, userToDeleteId);
                 }
                 
-                // Remove user access from shared tunnels
                 const sharedTunnels = statements.findTunnelsByUser.all(userToDeleteId);
                 for (const tunnel of sharedTunnels) {
                     statements.removeTunnelUser.run(tunnel.id, userToDeleteId);
                 }
                 
-                // Delete the user
                 statements.deleteUser.run(userToDeleteId);
                 
                 return true;
@@ -545,7 +500,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Save a new SSH tunnel configuration
     socket.on('saveTunnel', async ({ userId, sessionToken, tunnelConfig }, callback) => {
         try {
             if (!tunnelConfig) {
@@ -557,7 +511,6 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
-            // Clean and validate tunnel config
             const cleanConfig = {
                 name: (tunnelConfig.name?.trim()) || '',
                 sourceIp: (tunnelConfig.sourceIp?.trim()) || '',
@@ -580,7 +533,6 @@ io.on('connection', (socket) => {
                 isPinned: !!tunnelConfig.isPinned
             };
 
-            // Basic validation
             if (!cleanConfig.sourceIp || !cleanConfig.sourceUser || 
                 !cleanConfig.endPointIp || !cleanConfig.endPointUser) {
                 return callback({ error: 'Source and Endpoint information are required' });
@@ -589,7 +541,6 @@ io.on('connection', (socket) => {
             const finalName = cleanConfig.name || `${cleanConfig.sourceIp}->${cleanConfig.endPointIp}:${cleanConfig.endPointPort}`;
 
             const db_transaction = db.transaction(() => {
-                // Check for duplicate names
                 if (finalName.trim() !== '') {
                     try {
                         const existingTunnelByName = statements.findTunnelsByName.get(userId, finalName);
@@ -603,13 +554,11 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                // Encrypt tunnel configuration
                 const encryptedConfig = encryptData(cleanConfig, userId, sessionToken);
                 if (!encryptedConfig) {
                     throw new Error('Configuration encryption failed');
                 }
 
-                // Save tunnel to database
                 const tunnelId = generateId();
                 statements.createTunnel.run(
                     tunnelId,
@@ -620,10 +569,8 @@ io.on('connection', (socket) => {
                     cleanConfig.isPinned ? 1 : 0
                 );
 
-                // Associate tunnel with user
                 statements.addTunnelUser.run(tunnelId, userId);
 
-                // Save tags if any
                 if (Array.isArray(cleanConfig.tags)) {
                     cleanConfig.tags.forEach(tag => {
                         statements.addTunnelTag.run(tunnelId, tag);
@@ -642,7 +589,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Get all tunnels for a user
     socket.on('getTunnels', async ({ userId, sessionToken }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -650,38 +596,28 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
-            // Get tunnels created by the user
             const createdTunnels = statements.findTunnelsByCreator.all(userId);
             
-            // Get tunnels shared with the user
             const sharedTunnels = statements.findSharedTunnelsWithUser.all(userId, userId);
             
-            // Combined list of tunnels
             const tunnels = [...createdTunnels, ...sharedTunnels];
             
-            // Process each tunnel to get details
             const detailedTunnels = [];
             for (const tunnel of tunnels) {
                 try {
-                    // Get creator information
                     const createdBy = statements.findUserById.get(tunnel.createdBy);
                     if (!createdBy) {
                         continue;
                     }
 
-                    // Get users with access to this tunnel
                     const userIds = statements.findTunnelUsers.all(tunnel.id).map(row => row.userId);
                     
-                    // Get tunnel tags
                     const tags = statements.findTunnelTags.all(tunnel.id).map(row => row.tag);
                     
-                    // Decrypt tunnel configuration
                     let decryptedConfig;
                     if (tunnel.createdBy === userId) {
-                        // If user is the owner, use their session token
                         decryptedConfig = decryptData(tunnel.config, userId, sessionToken);
                     } else {
-                        // If shared, use the creator's session token
                         decryptedConfig = decryptData(tunnel.config, createdBy.id, createdBy.sessionToken);
                     }
                     
@@ -689,7 +625,6 @@ io.on('connection', (socket) => {
                         continue;
                     }
 
-                    // Add tunnel to the results
                     detailedTunnels.push({
                         id: tunnel.id,
                         name: tunnel.name,
@@ -716,7 +651,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Edit an existing SSH tunnel
     socket.on('editTunnel', async ({ userId, sessionToken, tunnelId, tunnelConfig }, callback) => {
         try {
             if (!tunnelId || !tunnelConfig) {
@@ -728,18 +662,15 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
-            // Check if tunnel exists and user has permission to edit it
             const tunnel = statements.findTunnelById.get(tunnelId);
             if (!tunnel) {
                 return callback({ error: 'Tunnel not found' });
             }
 
-            // Only the creator can edit the tunnel
             if (tunnel.createdBy !== userId) {
                 return callback({ error: 'You do not have permission to edit this tunnel' });
             }
 
-            // Clean and validate tunnel config
             const cleanConfig = {
                 name: (tunnelConfig.name?.trim()) || tunnel.name,
                 sourceIp: (tunnelConfig.sourceIp?.trim()) || '',
@@ -762,7 +693,6 @@ io.on('connection', (socket) => {
                 isPinned: tunnelConfig.isPinned !== undefined ? !!tunnelConfig.isPinned : !!tunnel.isPinned
             };
 
-            // Basic validation
             if (!cleanConfig.sourceIp || !cleanConfig.sourceUser || 
                 !cleanConfig.endPointIp || !cleanConfig.endPointUser) {
                 return callback({ error: 'Source and Endpoint information are required' });
@@ -771,7 +701,6 @@ io.on('connection', (socket) => {
             const finalName = cleanConfig.name;
 
             const db_transaction = db.transaction(() => {
-                // Check for duplicate names only if name has changed
                 if (finalName !== tunnel.name) {
                     try {
                         const existingTunnelByName = statements.findTunnelsByName.get(userId, finalName);
@@ -785,13 +714,11 @@ io.on('connection', (socket) => {
                     }
                 }
 
-                // Encrypt tunnel configuration
                 const encryptedConfig = encryptData(cleanConfig, userId, sessionToken);
                 if (!encryptedConfig) {
                     throw new Error('Configuration encryption failed');
                 }
 
-                // Update tunnel in database
                 statements.updateTunnel.run(
                     finalName,
                     encryptedConfig,
@@ -800,7 +727,6 @@ io.on('connection', (socket) => {
                     tunnelId
                 );
 
-                // Update tags
                 statements.deleteTunnelTags.run(tunnelId);
                 if (Array.isArray(cleanConfig.tags)) {
                     cleanConfig.tags.forEach(tag => {
@@ -820,7 +746,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Share a tunnel with another user
     socket.on('shareTunnel', async ({ userId, sessionToken, tunnelId, targetUsername }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -828,25 +753,21 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
-            // Check if target user exists
             const targetUser = statements.findUserByUsername.get(targetUsername);
             if (!targetUser) {
                 return callback({ error: 'User not found' });
             }
 
-            // Check if tunnel exists and user has permission to share it
             const tunnel = statements.findTunnelByIdAndCreator.get(tunnelId, userId);
             if (!tunnel) {
                 return callback({ error: 'Tunnel not found or unauthorized' });
             }
 
-            // Check if already shared with this user
             const tunnelUsers = statements.findTunnelUsers.all(tunnelId).map(row => row.userId);
             if (tunnelUsers.includes(targetUser.id)) {
                 return callback({ error: 'Tunnel already shared with this user' });
             }
 
-            // Share the tunnel
             statements.addTunnelUser.run(tunnelId, targetUser.id);
 
             callback({ success: true });
@@ -856,7 +777,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Remove tunnel sharing
     socket.on('removeTunnelShare', async ({ userId, sessionToken, tunnelId, targetUserId }, callback) => {
         try {
             const user = statements.findUserByIdAndSessionToken.get(userId, sessionToken);
@@ -864,21 +784,17 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
-            // Check if tunnel exists
             const tunnel = statements.findTunnelById.get(tunnelId);
             if (!tunnel) {
                 return callback({ error: 'Tunnel not found' });
             }
 
-            // Determine which user is being removed
             const userIdToRemove = targetUserId || userId;
             
-            // If removing someone else, make sure requestor is the owner
             if (targetUserId && tunnel.createdBy !== userId) {
                 return callback({ error: 'You do not have permission to remove this share' });
             }
 
-            // Remove the share
             statements.removeTunnelUser.run(tunnelId, userIdToRemove);
 
             callback({ success: true });
@@ -888,7 +804,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Delete a tunnel
     socket.on('deleteTunnel', async ({ userId, sessionToken, tunnelId }, callback) => {
         try {
             if (!userId || !sessionToken) {
@@ -911,12 +826,10 @@ io.on('connection', (socket) => {
                 }
 
                 if (tunnel.createdBy === userId) {
-                    // Owner is deleting the tunnel - remove it completely
                     statements.deleteTunnelTags.run(tunnelId);
                     statements.deleteTunnelUsers.run(tunnelId);
                     statements.deleteTunnel.run(tunnelId, userId);
                 } else {
-                    // Non-owner is removing themselves from the tunnel
                     statements.removeTunnelUser.run(tunnelId, userId);
                 }
                 
@@ -936,13 +849,10 @@ io.on('connection', (socket) => {
         }
     });
     
-    // Handle socket disconnection
     socket.on('disconnect', () => {
-        // No logging here to reduce spam
     });
 });
 
-// Start the server
 server.listen(8081, () => {
     logger.info('Tunnelix database server running on port 8081');
 });

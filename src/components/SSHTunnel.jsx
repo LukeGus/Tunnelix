@@ -18,7 +18,6 @@ export const NewTunnel = ({ hostConfig }) => {
     const [lastDiagnostic, setLastDiagnostic] = useState(null);
     const [wasEverConnected, setWasEverConnected] = useState(false);
 
-    // Connection states for better readability
     const CONNECTION_STATES = {
         DISCONNECTED: "disconnected",
         CONNECTING: "connecting",
@@ -59,7 +58,6 @@ export const NewTunnel = ({ hostConfig }) => {
                 }
             });
             
-            // Handle individual tunnel status updates (prevents UI glitches)
             socket.on("individualTunnelStatus", (data) => {
                 if (data.name === hostConfig.name) {
                     updateStatusFromData(data.status);
@@ -86,10 +84,8 @@ export const NewTunnel = ({ hostConfig }) => {
         function updateStatusFromData(status) {
             if (!status) return;
             
-            // Check for manual disconnect flag
             const isManualDisconnect = status.manualDisconnect === true;
             
-            // Handle disconnection state completion
             if (isDisconnecting && status.status === CONNECTION_STATES.DISCONNECTED) {
                 setIsDisconnecting(false);
                 setIsConnected(false);
@@ -102,7 +98,6 @@ export const NewTunnel = ({ hostConfig }) => {
                 return;
             }
             
-            // Handle retry state - ensure we get the correct retry count from backend
             if (status.status === CONNECTION_STATES.RETRYING) {
                 setIsRetrying(true);
                 setIsConnecting(false);
@@ -110,7 +105,6 @@ export const NewTunnel = ({ hostConfig }) => {
                 setIsConnected(false);
                 setHasFailed(false);
                 
-                // Create a clean retry data object from backend values
                 const retryData = {
                     current: status.retryCount, 
                     max: status.maxRetries || hostConfig.retryConfig?.maxRetries || 3,
@@ -119,12 +113,10 @@ export const NewTunnel = ({ hostConfig }) => {
                 
                 setRetryInfo(retryData);
                 
-                // Set status text immediately with correct retry values
                 setStatusText(`Retrying (${retryData.current}/${retryData.max})...`);
                 return;
             }
             
-            // Only set connected if the status explicitly indicates it
             const wasConnected = isConnected;
             setIsConnected(status.connected === true);
             
@@ -142,11 +134,9 @@ export const NewTunnel = ({ hostConfig }) => {
                 setStatusText(status.retryCount ? `Connecting (retry ${status.retryCount})...` : "Connecting...");
                 
                 if (status.retryCount === 0) {
-                    // Reset the wasEverConnected flag when starting a new connection
                     setWasEverConnected(false);
                 }
             } else if (status.status === CONNECTION_STATES.VERIFYING) {
-                // Only show "Verifying..." before first successful connection
                 if (!wasEverConnected) {
                     setIsConnecting(false);
                     setIsVerifying(true);
@@ -156,7 +146,6 @@ export const NewTunnel = ({ hostConfig }) => {
                     setHasFailed(false);
                     setStatusText("Verifying...");
                 } else {
-                    // For periodic verification, just keep showing "Connected"
                     setIsConnecting(false);
                     setIsVerifying(false);
                     setIsDisconnecting(false);
@@ -185,12 +174,10 @@ export const NewTunnel = ({ hostConfig }) => {
                 setHasFailed(true);
                 setStatusText("Failed");
                 
-                // Display failure reason if available
                 if (status.reason) {
                     setErrorDetails(status.reason);
                 }
                 
-                // Keep wasEverConnected as is to remember previous connections
             } else if (status.status === CONNECTION_STATES.UNSTABLE) {
                 setIsConnecting(false);
                 setIsVerifying(false);
@@ -201,7 +188,6 @@ export const NewTunnel = ({ hostConfig }) => {
                 setHasFailed(false);
                 setStatusText("Unstable");
             } else if (status.status === CONNECTION_STATES.DISCONNECTED) {
-                // Only update if this is not from a manual disconnect or we're already disconnecting
                 if (isManualDisconnect || isDisconnecting) {
                     setIsConnecting(false);
                     setIsVerifying(false);
@@ -212,9 +198,7 @@ export const NewTunnel = ({ hostConfig }) => {
                     setStatusText("Disconnected");
                     setIsDisconnecting(false);
                 }
-                // Keep wasEverConnected as is to remember previous connections
             } else {
-                // Default fallback
                 setIsConnecting(false);
                 setIsVerifying(false);
                 setIsDisconnecting(false);
@@ -236,7 +220,6 @@ export const NewTunnel = ({ hostConfig }) => {
             setStatusText("Disconnected");
             setHasFailed(false);
             setErrorDetails("");
-            // Don't reset wasEverConnected here
         }
 
         connectSocket();
@@ -266,7 +249,6 @@ export const NewTunnel = ({ hostConfig }) => {
             if (socketRef.current && socketRef.current.connected) {
                 socketRef.current.emit("getTunnelStatus");
                 
-                // If connected, also request a diagnostic check periodically
                 if (isConnected) {
                     socketRef.current.emit("diagnose", hostConfig.name);
                 }
@@ -286,11 +268,8 @@ export const NewTunnel = ({ hostConfig }) => {
     };
 
     const closeTunnel = () => {
-        // Allow disconnect during retrying state as well to cancel retries
-        // Don't allow disconnect if we're already disconnected, disconnecting, or in failed state
         if ((!isConnected && !isVerifying && !isRetrying) || isDisconnecting || hasFailed || !socketRef.current) return;
 
-        // Set the disconnecting state immediately to prevent further clicks
         setIsDisconnecting(true);
         setStatusText("Disconnecting...");
         

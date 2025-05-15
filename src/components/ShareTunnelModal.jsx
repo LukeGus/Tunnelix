@@ -7,7 +7,6 @@ export const ShareTunnelModal = ({ onClose, onShare, tunnelName }) => {
     const [isLoading, setIsLoading] = useState(false);
     const modalRef = useRef(null);
     
-    // Handle clicking outside to close the modal
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -21,7 +20,6 @@ export const ShareTunnelModal = ({ onClose, onShare, tunnelName }) => {
         };
     }, [onClose]);
     
-    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -37,7 +35,6 @@ export const ShareTunnelModal = ({ onClose, onShare, tunnelName }) => {
             await onShare(username);
             onClose();
         } catch (error) {
-            // Only show error in the modal, not in the main app
             setError(error.message || 'Failed to share tunnel');
             setIsLoading(false);
         }

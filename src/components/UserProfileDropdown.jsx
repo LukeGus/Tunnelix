@@ -7,8 +7,7 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isOnlyAdmin, setIsOnlyAdmin] = useState(false);
     const dropdownRef = useRef(null);
-    
-    // Close dropdown when clicking outside
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -21,24 +20,19 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
-    
-    // Toggle dropdown
+
     const toggleDropdown = () => {
         setIsOpen(!isOpen);
     };
-    
-    // Handle logout
+
     const handleLogout = () => {
         setIsOpen(false);
         onLogout();
     };
-    
-    // Open the delete account modal
+
     const openDeleteAccount = async () => {
         setIsOpen(false);
-        
-        // If the user is an admin, check if they are the only admin left
-        // This requires calling the API, but we'll simulate it here
+
         if (user?.isAdmin) {
             try {
                 // Assuming this is available through the user ref
@@ -51,29 +45,24 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
                     setIsDeleteModalOpen(true);
                 }
             } catch (error) {
-                // If we can't determine, assume they're not the only admin
                 setIsOnlyAdmin(false);
                 setIsDeleteModalOpen(true);
             }
         } else {
-            // Non-admin users can always delete their account
             setIsOnlyAdmin(false);
             setIsDeleteModalOpen(true);
         }
     };
-    
-    // Handle the confirm action from the modal
+
     const confirmDeleteAccount = () => {
         onDeleteAccount();
     };
-    
-    // Handle admin panel
+
     const handleOpenAdminPanel = () => {
         setIsOpen(false);
         onOpenAdminPanel();
     };
-    
-    // Get user type label
+
     const getUserTypeLabel = () => {
         if (!user) return '';
         if (user.isAdmin) return 'Admin';
@@ -131,8 +120,7 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
                         </svg>
                         Logout
                     </button>
-                    
-                    {/* Don't show delete account for guest users or if user is the only admin */}
+
                     {user && !user.username.startsWith('guest-') && (
                         <button
                             onClick={openDeleteAccount}
@@ -146,7 +134,7 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
                     )}
                 </div>
             )}
-            
+
             {/* Delete Account Confirmation Modal */}
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
@@ -158,7 +146,7 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
                 cancelText="Cancel"
                 isDestructive={true}
             />
-            
+
             {/* Only Admin Warning Modal */}
             <ConfirmModal
                 isOpen={isOnlyAdmin}

@@ -6,7 +6,6 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
     const [showSourcePassword, setShowSourcePassword] = useState(false);
     const [showEndpointPassword, setShowEndpointPassword] = useState(false);
     
-    // Initialize form with tunnel data
     const [tunnelConfig, setTunnelConfig] = useState(tunnelData || {
         name: '',
         sourceIp: '',
@@ -26,12 +25,10 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
         refreshInterval: 30000
     });
 
-    // Update form when tunnelData changes
     useEffect(() => {
         if (tunnelData) {
             setTunnelConfig({
                 ...tunnelData,
-                // Ensure nested objects exist
                 retryConfig: tunnelData.retryConfig || {
                     maxRetries: 3,
                     retryInterval: 5000
@@ -44,7 +41,6 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
         const { name, value } = e.target;
         
         if (name.includes('.')) {
-            // Handle nested object fields (retryConfig.maxRetries)
             const [parent, child] = name.split('.');
             setTunnelConfig({
                 ...tunnelConfig,
@@ -56,7 +52,6 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                 }
             });
         } else {
-            // Handle direct fields
             setTunnelConfig({
                 ...tunnelConfig,
                 [name]: name.includes('Port') || name === 'refreshInterval'
@@ -71,7 +66,6 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
         onSave(tunnelConfig);
     };
     
-    // Handle clicking outside to close the modal
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {

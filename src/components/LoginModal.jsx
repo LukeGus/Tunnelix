@@ -11,11 +11,9 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
     const [showRegisterPassword, setShowRegisterPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
-    // Form data
     const [loginData, setLoginData] = useState({ username: '', password: '' });
     const [registerData, setRegisterData] = useState({ username: '', password: '', confirmPassword: '' });
     
-    // Check account creation status
     useEffect(() => {
         const checkStatus = async () => {
             try {
@@ -24,7 +22,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
                     setAccountCreationAllowed(status.allowed);
                     setIsFirstUser(status.isFirstUser);
                     
-                    // If this is the first user, switch to register tab
                     if (status.isFirstUser) {
                         setActiveTab('register');
                     }
@@ -39,12 +36,10 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         }
     }, [isVisible, userRef]);
     
-    // Clear error when tab changes
     useEffect(() => {
         setErrorMessage('');
     }, [activeTab]);
     
-    // Expose API error handling to parent
     useEffect(() => {
         const handleError = error => {
             if (isVisible) {
@@ -53,7 +48,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
             }
         };
         
-        // Register this function with a global event bus or parent component
         if (userRef.current && userRef.current.onLoginFailure) {
             userRef.current.onLoginFailure = handleError;
         }
@@ -76,7 +70,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         
         try {
             await onLogin(loginData);
-            // Clear form
             setLoginData({ username: '', password: '' });
         } catch (error) {
             setErrorMessage(error.message || 'Login failed');
@@ -89,7 +82,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         e.preventDefault();
         setErrorMessage('');
         
-        // Validation
         if (registerData.password !== registerData.confirmPassword) {
             setErrorMessage('Passwords do not match');
             return;
@@ -104,7 +96,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         
         try {
             await onRegister(registerData);
-            // Clear form
             setRegisterData({ username: '', password: '', confirmPassword: '' });
         } catch (error) {
             setErrorMessage(error.message || 'Registration failed');

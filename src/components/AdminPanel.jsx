@@ -16,14 +16,11 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
     const modalRef = useRef(null);
     const adminInputRef = useRef(null);
     
-    // Handle clicking outside to close the modal
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
-                // Check if we're clicking on a modal (like a ConfirmModal)
                 const isClickingOnModal = event.target.closest('[role="dialog"]');
                 
-                // Don't close if we're clicking on another modal
                 if (!isClickingOnModal) {
                     onClose();
                 }
@@ -39,20 +36,15 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         };
     }, [isOpen, onClose]);
     
-    // Load users and admins when panel opens
     useEffect(() => {
         if (isOpen) {
-            // Clear any previous errors
             setErrorMessage('');
-            // Start by setting loading state
             setIsLoading(true);
             
             const fetchData = async () => {
                 try {
-                    // Load settings first
                     await checkAccountCreationStatus();
                     
-                    // Then load users and admins
                     await Promise.all([
                         loadUsers(),
                         loadAdmins()
@@ -60,14 +52,12 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
                 } catch (error) {
                     setErrorMessage("Failed to load admin panel data. Please try again.");
                 } finally {
-                    // Always set loading to false when done
                     setIsLoading(false);
                 }
             };
             
             fetchData();
             
-            // Focus the admin input field when the panel opens
             setTimeout(() => {
                 if (adminInputRef.current) {
                     adminInputRef.current.focus();
@@ -76,7 +66,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     }, [isOpen]);
     
-    // Load all users
     const loadUsers = async (retryCount = 0) => {
         try {
             if (userRef.current) {
@@ -85,7 +74,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
                 return allUsers;
             }
         } catch (error) {
-            // Retry on network errors
             if (retryCount < 2) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 return loadUsers(retryCount + 1);
@@ -96,17 +84,14 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     };
     
-    // Load admin users with retry mechanism
     const loadAdmins = async (retryCount = 0) => {
         try {
             if (userRef.current) {
                 const adminList = await userRef.current.getAllAdmins();
                 
                 if (!adminList || adminList.length === 0) {
-                    // If empty and we're an admin, something might be wrong
                     const currentUserData = userRef.current.getUser();
                     if (currentUserData?.isAdmin && retryCount < 2) {
-                        // Wait a bit and retry
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         return loadAdmins(retryCount + 1);
                     }
@@ -116,7 +101,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
                 return adminList;
             }
         } catch (error) {
-            // Retry on network errors
             if (retryCount < 2) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 return loadAdmins(retryCount + 1);
@@ -127,27 +111,21 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     };
     
-    // Check account creation status with better error handling
     const checkAccountCreationStatus = async () => {
         try {
             if (userRef.current) {
                 const status = await userRef.current.checkAccountCreationStatus();
                 
-                // Only update state if we got a valid response
                 if (status && typeof status.allowed === 'boolean') {
                     setAccountCreationEnabled(status.allowed);
                 }
                 return status;
             }
         } catch (error) {
-            // Don't set error message here - just log it
-            // This prevents the error from showing during initial load
         }
     };
     
-    // Toggle account creation setting with better error handling
     const toggleAccountCreation = async () => {
-        // Prevent multiple clicks
         if (isLoading) return;
         
         setIsLoading(true);
@@ -155,33 +133,25 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         
         try {
             if (userRef.current) {
-                // Store current state to revert if needed
                 const previousState = accountCreationEnabled;
                 
-                // Optimistically update UI
                 setAccountCreationEnabled(!previousState);
                 
-                // Call the API with a timeout
                 const togglePromise = userRef.current.toggleAccountCreation(!previousState);
                 
-                // Add a timeout to the promise
                 const timeoutPromise = new Promise((_, reject) => {
                     setTimeout(() => reject(new Error("Toggle operation timed out")), 5000);
                 });
                 
-                // Race the promises
                 const result = await Promise.race([togglePromise, timeoutPromise]);
                 
-                // If result is not what we expected, revert
                 if (typeof result === 'boolean' && result !== !previousState) {
                     setAccountCreationEnabled(previousState);
                 }
                 
-                // Refresh admin list after toggling account creation
                 await loadAdmins();
             }
         } catch (error) {
-            // Revert UI state on error
             setAccountCreationEnabled(accountCreationEnabled);
             setErrorMessage(error.message || 'Failed to update account creation setting');
         } finally {
@@ -189,7 +159,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     };
     
-    // Make a user an admin
     const addAdmin = async (e) => {
         e.preventDefault();
         if (!newAdminUsername.trim()) return;
@@ -206,7 +175,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
                 await loadAdmins();
                 await loadUsers();
                 
-                // Focus the input field again
                 if (adminInputRef.current) {
                     adminInputRef.current.focus();
                 }
@@ -218,7 +186,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     };
     
-    // Remove admin privileges
     const removeAdmin = async (username) => {
         setIsLoading(true);
         setErrorMessage('');
@@ -238,13 +205,11 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     };
     
-    // Open delete user confirmation modal
     const confirmDeleteUser = (userId, username) => {
         setUserToDelete({ id: userId, username });
         setIsDeleteModalOpen(true);
     };
     
-    // Delete a user
     const deleteUser = async () => {
         if (!userToDelete) return;
         
@@ -268,17 +233,14 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
         }
     };
     
-    // Clear messages when changing tabs
     const handleTabChange = (tab) => {
         setActiveTab(tab);
         setErrorMessage('');
         setSuccessMessage('');
     };
     
-    // If panel is closed, don't render anything
     if (!isOpen) return null;
     
-    // Get current user for permissions
     const currentUserData = userRef.current?.getUser();
     
     return (

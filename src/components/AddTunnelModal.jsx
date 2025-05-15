@@ -30,7 +30,6 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
         const { name, value } = e.target;
         
         if (name.includes('.')) {
-            // Handle nested object fields (retryConfig.maxRetries)
             const [parent, child] = name.split('.');
             setTunnelConfig({
                 ...tunnelConfig,
@@ -42,7 +41,6 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                 }
             });
         } else {
-            // Handle direct fields
             setTunnelConfig({
                 ...tunnelConfig,
                 [name]: name.includes('Port') || name === 'refreshInterval'
@@ -55,7 +53,6 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         onAdd(tunnelConfig);
-        // Reset form after submission
         setTunnelConfig(initialFormState);
     };
     
@@ -63,7 +60,6 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
         setTunnelConfig(initialFormState);
     };
     
-    // Handle clicking outside to close the modal
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -131,7 +127,7 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                     />
                                 </div>
                                 
-                                <div className="flex items-center text-blue-300">
+                                <div className="flex items-center text-blue-300 self-end pb-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                                     </svg>

@@ -13,7 +13,6 @@ export const ConfirmModal = ({
 }) => {
     const modalRef = useRef(null);
     
-    // Handle clicking outside to close the modal
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
