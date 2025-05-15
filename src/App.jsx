@@ -10,10 +10,8 @@ import { ConfirmModal } from './components/ConfirmModal.jsx';
 import { User } from './components/User.jsx';
 
 function App() {
-    // Refs
     const userRef = useRef(null);
     
-    // Make userRef available globally for other components to access
     useEffect(() => {
         window.userRef = userRef;
         return () => {
@@ -21,7 +19,6 @@ function App() {
         };
     }, []);
     
-    // State
     const [tunnels, setTunnels] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -35,48 +32,54 @@ function App() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     
-    // Check if user is logged in on mount
     useEffect(() => {
         const checkSession = async () => {
             setLoading(true);
-            const storedSession = localStorage.getItem("sessionToken");
-            
-            if (storedSession) {
-                // Session exists, verify will happen in User component
-                setIsLoginModalOpen(false);
-            } else {
-                // No session, show login modal
-                setIsLoginModalOpen(true);
+            try {
+                const storedSession = localStorage.getItem("sessionToken");
+                
+                if (storedSession) {
+                    setIsLoginModalOpen(false);
+                    
+                    setTimeout(() => {
+                        setLoading(false);
+                    }, 3000);
+                } else {
+                    setLoading(false);
+                    setTimeout(() => {
+                        setIsLoginModalOpen(true);
+                    }, 100);
+                }
+            } catch (error) {
+                setLoading(false);
+                setTimeout(() => {
+                    setIsLoginModalOpen(true);
+                }, 100);
             }
-            
-            setLoading(false);
         };
         
         checkSession();
     }, []);
     
-    // Update login modal visibility when currentUser changes
     useEffect(() => {
         if (!currentUser) {
             setIsLoginModalOpen(true);
         } else {
             setIsLoginModalOpen(false);
+            setLoading(false);
         }
     }, [currentUser]);
     
-    // Load tunnels when user is logged in
     useEffect(() => {
         if (currentUser) {
             loadTunnels();
         }
     }, [currentUser]);
     
-    // Load tunnels from database
     const loadTunnels = async () => {
         try {
             if (userRef.current && currentUser) {
                 const fetchedTunnels = await userRef.current.getAllTunnels();
-                console.log("Loaded tunnels:", fetchedTunnels.length);
                 setTunnels(fetchedTunnels);
             }
         } catch (error) {
@@ -84,48 +87,39 @@ function App() {
         }
     };
     
-    // Handle user login success
     const handleLoginSuccess = (user) => {
         setCurrentUser(user);
         setIsLoginModalOpen(false);
-        setError(''); // Clear any errors when login succeeds
+        setError('');
     };
     
-    // Handle user creation success
     const handleCreateSuccess = (user) => {
         setCurrentUser(user);
         setIsLoginModalOpen(false);
-        setError(''); // Clear any errors when account creation succeeds
+        setError('');
     };
     
-    // Handle user deletion success
     const handleDeleteSuccess = () => {
         setCurrentUser(null);
         setTunnels([]);
         setIsLoginModalOpen(true);
-        setError(''); // Clear any errors when account is deleted
+        setError('');
     };
     
-    // Handle API failures
     const handleFailure = (errorMessage) => {
-        // If no user is logged in, error should only show in the login modal
         if (!currentUser) {
-            // Don't set the main error, just show in login modal
             return;
         }
         
-        // For logged-in users, show errors in the main UI
         setError(errorMessage);
     };
     
-    // Handle login form submission
     const handleLogin = async (loginData) => {
         if (userRef.current) {
             await userRef.current.loginUser(loginData);
         }
     };
     
-    // Handle registration form submission
     const handleRegister = async (registerData) => {
         if (userRef.current) {
             await userRef.current.createUser({
@@ -135,29 +129,24 @@ function App() {
         }
     };
     
-    // Handle guest login
     const handleGuestLogin = async () => {
         if (userRef.current) {
             await userRef.current.loginAsGuest();
         }
     };
     
-    // Handle logout
     const handleLogout = () => {
         if (userRef.current) {
             userRef.current.logoutUser();
             setCurrentUser(null);
             setTunnels([]);
             
-            // Ensure login modal appears after logout
             setIsLoginModalOpen(true);
             
-            // Force clear localStorage session
             localStorage.removeItem("sessionToken");
         }
     };
     
-    // Handle account deletion
     const handleDeleteAccount = async () => {
         try {
             if (userRef.current) {
@@ -168,25 +157,23 @@ function App() {
         }
     };
     
-    // Add a new tunnel
     const addNewTunnel = async (tunnelConfig) => {
         try {
             if (userRef.current) {
                 await userRef.current.saveTunnel(tunnelConfig);
-                setIsAddModalOpen(false); // Close the modal first
-                await loadTunnels(); // Then reload tunnels
+                setIsAddModalOpen(false);
+                await loadTunnels();
             }
         } catch (error) {
             setError("Failed to add tunnel: " + error.message);
         }
     };
     
-    // Edit an existing tunnel
     const editTunnel = async (tunnelConfig) => {
         try {
             if (userRef.current && selectedTunnel) {
                 await userRef.current.editTunnel(selectedTunnel.id, tunnelConfig);
-                await loadTunnels(); // Reload tunnels after editing
+                await loadTunnels();
                 setIsEditModalOpen(false);
                 setSelectedTunnel(null);
             }
@@ -195,7 +182,6 @@ function App() {
         }
     };
     
-    // Share a tunnel with another user
     const shareTunnel = async (username) => {
         try {
             if (userRef.current && selectedTunnel) {
@@ -208,12 +194,10 @@ function App() {
         }
     };
     
-    // Delete a tunnel
     const deleteTunnel = async () => {
         try {
             if (userRef.current && selectedTunnel) {
                 await userRef.current.deleteTunnel(selectedTunnel.id);
-                // Remove the tunnel from the local state immediately
                 setTunnels(prevTunnels => 
                     prevTunnels.filter(tunnel => tunnel.id !== selectedTunnel.id)
                 );
@@ -225,29 +209,39 @@ function App() {
         }
     };
     
-    // Handle opening edit modal for a tunnel
     const handleEditTunnel = (tunnel) => {
         setSelectedTunnel(tunnel);
         setIsEditModalOpen(true);
     };
     
-    // Handle opening share modal for a tunnel
     const handleShareTunnel = (tunnel) => {
         setSelectedTunnel(tunnel);
         setIsShareModalOpen(true);
     };
     
-    // Handle opening delete confirmation for a tunnel
     const handleDeleteTunnel = (tunnel) => {
         setSelectedTunnel(tunnel);
         setIsDeleteTunnelModalOpen(true);
     };
 
-    // Loading state
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-                <div className="text-white">Loading...</div>
+                <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                    <div className="text-white text-lg">Loading Tunnelix...</div>
+                </div>
+                
+                {/* Make the User component available during loading to handle session verification */}
+                <div className="hidden">
+                    <User
+                        ref={userRef}
+                        onLoginSuccess={handleLoginSuccess}
+                        onCreateSuccess={handleCreateSuccess}
+                        onDeleteSuccess={handleDeleteSuccess}
+                        onFailure={handleFailure}
+                    />
+                </div>
             </div>
         );
     }
@@ -266,7 +260,7 @@ function App() {
             {/* Login Modal */}
             <LoginModal
                 isVisible={isLoginModalOpen}
-                onClose={() => {}} // Can't be closed manually
+                onClose={() => {}}
                 onLogin={handleLogin}
                 onRegister={handleRegister}
                 onGuest={handleGuestLogin}
@@ -328,19 +322,6 @@ function App() {
                 )}
             </div>
             
-            {/* Error Display */}
-            {error && (
-                <div className="bg-red-900/50 text-red-200 p-3 m-4 rounded-md">
-                    <button 
-                        onClick={() => setError('')}
-                        className="float-right text-red-200 hover:text-white"
-                    >
-                        ✕
-                    </button>
-                    {error}
-                </div>
-            )}
-
             {/* Tunnels Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
                 {tunnels.map((tunnel) => (

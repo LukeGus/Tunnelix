@@ -7,12 +7,13 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
     const [isFirstUser, setIsFirstUser] = useState(false);
     const [activeTab, setActiveTab] = useState('login');
     const [errorMessage, setErrorMessage] = useState('');
+    const [showLoginPassword, setShowLoginPassword] = useState(false);
+    const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
-    // Form data
     const [loginData, setLoginData] = useState({ username: '', password: '' });
     const [registerData, setRegisterData] = useState({ username: '', password: '', confirmPassword: '' });
     
-    // Check account creation status
     useEffect(() => {
         const checkStatus = async () => {
             try {
@@ -21,13 +22,11 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
                     setAccountCreationAllowed(status.allowed);
                     setIsFirstUser(status.isFirstUser);
                     
-                    // If this is the first user, switch to register tab
                     if (status.isFirstUser) {
                         setActiveTab('register');
                     }
                 }
             } catch (err) {
-                console.error('Failed to check account status:', err);
                 setErrorMessage('Unable to connect to server. Please try again later.');
             }
         };
@@ -37,12 +36,10 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         }
     }, [isVisible, userRef]);
     
-    // Clear error when tab changes
     useEffect(() => {
         setErrorMessage('');
     }, [activeTab]);
     
-    // Expose API error handling to parent
     useEffect(() => {
         const handleError = error => {
             if (isVisible) {
@@ -51,7 +48,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
             }
         };
         
-        // Register this function with a global event bus or parent component
         if (userRef.current && userRef.current.onLoginFailure) {
             userRef.current.onLoginFailure = handleError;
         }
@@ -74,6 +70,7 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         
         try {
             await onLogin(loginData);
+            setLoginData({ username: '', password: '' });
         } catch (error) {
             setErrorMessage(error.message || 'Login failed');
         } finally {
@@ -85,7 +82,6 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         e.preventDefault();
         setErrorMessage('');
         
-        // Validation
         if (registerData.password !== registerData.confirmPassword) {
             setErrorMessage('Passwords do not match');
             return;
@@ -100,6 +96,7 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
         
         try {
             await onRegister(registerData);
+            setRegisterData({ username: '', password: '', confirmPassword: '' });
         } catch (error) {
             setErrorMessage(error.message || 'Registration failed');
         } finally {
@@ -191,16 +188,34 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
                             <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">
                                 Password
                             </label>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                value={loginData.password}
-                                onChange={handleLoginChange}
-                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="••••••••"
-                            />
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type={showLoginPassword ? "text" : "password"}
+                                    required
+                                    value={loginData.password}
+                                    onChange={handleLoginChange}
+                                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="••••••••"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                >
+                                    {showLoginPassword ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                        </svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                         <div className="pt-2">
                             <button
@@ -235,31 +250,67 @@ export const LoginModal = ({ onLogin, onRegister, onGuest, onClose, isVisible, u
                             <label htmlFor="register-password" className="block text-sm font-medium text-slate-300 mb-1">
                                 Password
                             </label>
-                            <input
-                                id="register-password"
-                                name="password"
-                                type="password"
-                                required
-                                value={registerData.password}
-                                onChange={handleRegisterChange}
-                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Choose a password"
-                            />
+                            <div className="relative">
+                                <input
+                                    id="register-password"
+                                    name="password"
+                                    type={showRegisterPassword ? "text" : "password"}
+                                    required
+                                    value={registerData.password}
+                                    onChange={handleRegisterChange}
+                                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Choose a password"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                                >
+                                    {showRegisterPassword ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                        </svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-300 mb-1">
                                 Confirm Password
                             </label>
-                            <input
-                                id="confirm-password"
-                                name="confirmPassword"
-                                type="password"
-                                required
-                                value={registerData.confirmPassword}
-                                onChange={handleRegisterChange}
-                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Confirm your password"
-                            />
+                            <div className="relative">
+                                <input
+                                    id="confirm-password"
+                                    name="confirmPassword"
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    required
+                                    value={registerData.confirmPassword}
+                                    onChange={handleRegisterChange}
+                                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Confirm your password"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                    {showConfirmPassword ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                        </svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                         <div className="pt-2">
                             <button

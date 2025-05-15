@@ -8,7 +8,7 @@
 
   color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #0f172a; /* Slate 900 */
+  background-color: #0f172a;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -17,6 +17,6 @@
 }
 
 body {
-  background-color: #0f172a; /* Slate 900 */
-  color: #e2e8f0; /* Slate 200 */
+  background-color: #0f172a;
+  color: #e2e8f0;
 }

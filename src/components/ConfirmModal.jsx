@@ -13,7 +13,6 @@ export const ConfirmModal = ({
 }) => {
     const modalRef = useRef(null);
     
-    // Handle clicking outside to close the modal
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -68,7 +67,7 @@ export const ConfirmModal = ({
                             onConfirm();
                             onClose();
                         }}
-                        className={`px-4 py-2 ${isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md`}
+                        className={`px-4 py-2 ${isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDestructive ? 'focus:ring-red-500' : 'focus:ring-blue-500'}`}
                     >
                         {confirmText}
                     </button>

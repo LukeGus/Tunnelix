@@ -2,19 +2,16 @@ import { useRef, forwardRef, useImperativeHandle, useEffect, useState } from "re
 import io from "socket.io-client";
 import PropTypes from "prop-types";
 
-// Simplify socket URL configuration
 const SOCKET_URL = window.location.hostname === "localhost"
     ? "http://localhost:8081"
     : window.location.origin;
 
-// Create a single socket instance with simpler configuration
 let socket = null;
 
-// Function to get or create socket
 const getSocket = () => {
     if (!socket) {
         socket = io(SOCKET_URL, {
-            path: "/tunnelix.io/socket.io",
+            path: "/database.io/socket.io",
             transports: ["websocket", "polling"],
             autoConnect: false,
             reconnectionAttempts: 5,
@@ -32,7 +29,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
     const currentUser = useRef(null);
     const [isConnecting, setIsConnecting] = useState(false);
 
-    // Expose methods to parent component
     useImperativeHandle(ref, () => ({
         loginUser,
         createUser,
@@ -53,7 +49,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         getUser: () => currentUser.current
     }));
 
-    // Connect socket safely
     const safeConnect = async () => {
         if (isConnecting) return;
         
@@ -62,7 +57,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
             try {
                 socketRef.current.connect();
                 
-                // Wait for connection
                 await new Promise((resolve, reject) => {
                     const timeout = setTimeout(() => {
                         reject(new Error("Connection timeout"));
@@ -93,25 +87,20 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Emit with timeout - improved to handle missing callbacks
     const emitWithTimeout = async (event, data = {}, timeout = 10000) => {
-        // Make sure we're connected first
         await safeConnect();
         
-        // For events that do not expect data
         if (typeof data === 'number') {
             timeout = data;
             data = {};
         }
         
         return new Promise((resolve, reject) => {
-            // Create a timeout to prevent hanging
             const timer = setTimeout(() => {
                 reject(new Error(`Request timeout for ${event}`));
             }, timeout);
             
             try {
-                // Handle potential callback not a function error
                 socketRef.current.emit(event, data, function(response) {
                     clearTimeout(timer);
                     resolve(response);
@@ -124,12 +113,10 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
     };
 
     useEffect(() => {
-        // Connect once on mount
         safeConnect().catch(error => {
             onFailure("Failed to connect to server");
         });
         
-        // Verify session once at startup
         const verifySession = async () => {
             const storedSession = localStorage.getItem("sessionToken");
             if (!storedSession || storedSession === "undefined") return;
@@ -156,13 +143,10 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
 
         verifySession();
         
-        // Cleanup
         return () => {
-            // Don't disconnect - keep socket for app lifetime
         };
     }, [onLoginSuccess, onFailure]);
 
-    // Create new user account
     const createUser = async (userConfig) => {
         try {
             const accountCreationStatus = await checkAccountCreationStatus();
@@ -193,7 +177,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Login with username and password or session token
     const loginUser = async ({ username, password, sessionToken }) => {
         try {
             const response = await new Promise((resolve) => {
@@ -219,7 +202,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Login as a guest user
     const loginAsGuest = async () => {
         try {
             const response = await new Promise((resolve) => {
@@ -244,18 +226,23 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Logout the current user
     const logoutUser = () => {
         localStorage.removeItem("sessionToken");
         currentUser.current = null;
         
-        // Explicitly notify app to show login modal
+        try {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+                socketRef.current.connect();
+            }
+        } catch (e) {
+        }
+        
         if (onLoginSuccess) {
             onLoginSuccess(null);
         }
     };
 
-    // Delete the current user account
     const deleteUser = async (targetUserId = null) => {
         if (!currentUser.current) return onFailure("No user logged in");
 
@@ -269,7 +256,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
             });
 
             if (response?.success) {
-                // If deleting own account, logout
                 if (!targetUserId || targetUserId === currentUser.current.id) {
                     logoutUser();
                 }
@@ -283,20 +269,15 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Check if account creation is allowed
     const checkAccountCreationStatus = async () => {
         try {
-            // Make sure we're connected
             await safeConnect();
             
-            // Always provide a callback function to prevent server errors
             const response = await new Promise((resolve) => {
-                // Use a timeout to prevent hanging
                 const timeout = setTimeout(() => {
                     resolve({ allowed: true, isFirstUser: false });
                 }, 5000);
                 
-                // Make sure we pass a callback function
                 socketRef.current.emit("checkAccountCreationStatus", (result) => {
                     clearTimeout(timeout);
                     resolve(result || { allowed: true, isFirstUser: false });
@@ -308,12 +289,10 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
                 isFirstUser: response?.isFirstUser || false
             };
         } catch (error) {
-            // Default to allowing account creation on error
             return { allowed: true, isFirstUser: false };
         }
     };
 
-    // Toggle account creation setting (admin only) - fixed to ensure boolean return
     const toggleAccountCreation = async (enabled) => {
         if (!currentUser.current?.isAdmin) return onFailure("Not authorized");
 
@@ -328,7 +307,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
                 throw new Error(response?.error || "Failed to update account creation settings");
             }
             
-            // Ensure we return a boolean, not the whole response
             return response.enabled === true || response.enabled === false ? response.enabled : enabled;
         } catch (error) {
             onFailure(error.message || "Failed to toggle account creation");
@@ -336,7 +314,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Add admin privileges to a user (admin only)
     const addAdminUser = async (username) => {
         if (!currentUser.current?.isAdmin) return onFailure("Not authorized");
 
@@ -359,7 +336,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Remove admin privileges from a user (admin only)
     const removeAdminUser = async (username) => {
         if (!currentUser.current?.isAdmin) return onFailure("Not authorized");
 
@@ -382,7 +358,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Get list of all admin users (admin only)
     const getAllAdmins = async () => {
         if (!currentUser.current?.isAdmin) return [];
 
@@ -403,7 +378,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    // Get list of all users (admin only)
     const getAllUsers = async () => {
         if (!currentUser.current?.isAdmin) return [];
 
@@ -424,7 +398,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
     
-    // Save a new tunnel
     const saveTunnel = async (tunnelConfig) => {
         if (!currentUser.current) return onFailure("No user logged in");
         
@@ -448,7 +421,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
     
-    // Edit an existing tunnel
     const editTunnel = async (tunnelId, tunnelConfig) => {
         if (!currentUser.current) return onFailure("No user logged in");
         
@@ -473,7 +445,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
     
-    // Delete a tunnel
     const deleteTunnel = async (tunnelId) => {
         if (!currentUser.current) return onFailure("No user logged in");
         
@@ -497,7 +468,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
     
-    // Share a tunnel with another user
     const shareTunnel = async (tunnelId, username) => {
         if (!currentUser.current) return onFailure("No user logged in");
         
@@ -522,7 +492,6 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
     
-    // Get all tunnels for the current user
     const getAllTunnels = async () => {
         if (!currentUser.current) return [];
         
@@ -543,7 +512,7 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    return null; // This component doesn't render anything
+    return null;
 });
 
 User.propTypes = {
