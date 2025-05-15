@@ -7,12 +7,16 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
         name: '',
         sourceIp: '',
         sourceUser: '',
+        sourceAuthType: 'password',
         sourcePassword: '',
+        sourceKeyType: 'rsa',
         sourceSSHPort: 22,
         sourcePort: 22,
         endPointIp: '',
         endPointUser: '',
+        endPointAuthType: 'password',
         endPointPassword: '',
+        endPointKeyType: 'rsa',
         endPointSSHPort: 22,
         endPointPort: 0,
         retryConfig: {
@@ -25,6 +29,13 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
     const [tunnelConfig, setTunnelConfig] = useState(initialFormState);
     const [showSourcePassword, setShowSourcePassword] = useState(false);
     const [showEndpointPassword, setShowEndpointPassword] = useState(false);
+    const [sourceKey, setSourceKey] = useState(null);
+    const [endPointKey, setEndPointKey] = useState(null);
+    const [showSshpassInfo, setShowSshpassInfo] = useState(false);
+    
+    // Add ref for file inputs
+    const sourceKeyInputRef = useRef(null);
+    const endPointKeyInputRef = useRef(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -47,17 +58,98 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                     ? Number(value) 
                     : value
             });
+            
+            // Reset key when auth type changes
+            if (name === 'sourceAuthType') {
+                if (value === 'password') {
+                    setSourceKey(null);
+                    if (sourceKeyInputRef.current) {
+                        sourceKeyInputRef.current.value = '';
+                    }
+                }
+            } else if (name === 'endPointAuthType') {
+                if (value === 'password') {
+                    setEndPointKey(null);
+                    if (endPointKeyInputRef.current) {
+                        endPointKeyInputRef.current.value = '';
+                    }
+                }
+            }
         }
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAdd(tunnelConfig);
-        setTunnelConfig(initialFormState);
-    };
-    
     const handleReset = () => {
         setTunnelConfig(initialFormState);
+        setSourceKey(null);
+        setEndPointKey(null);
+        if (sourceKeyInputRef.current) sourceKeyInputRef.current.value = '';
+        if (endPointKeyInputRef.current) endPointKeyInputRef.current.value = '';
+    };
+    
+    const handleFileChange = (event, setKeyFunction, keyType) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target.result;
+            setKeyFunction(content);
+            
+            // Auto-detect key type based on content
+            let detectedKeyType = 'rsa'; // Default to RSA
+            
+            if (content.includes('BEGIN OPENSSH PRIVATE KEY')) {
+                // Modern OpenSSH format, likely ED25519
+                if (content.toLowerCase().includes('ed25519')) {
+                    detectedKeyType = 'ed25519';
+                } else if (content.toLowerCase().includes('ecdsa')) {
+                    detectedKeyType = 'ecdsa';
+                }
+            } else if (content.includes('BEGIN DSA PRIVATE KEY')) {
+                detectedKeyType = 'dsa';
+            } else if (content.includes('BEGIN EC PRIVATE KEY')) {
+                detectedKeyType = 'ecdsa';
+            } else if (content.includes('BEGIN PRIVATE KEY') || content.includes('BEGIN RSA PRIVATE KEY')) {
+                detectedKeyType = 'rsa';
+            }
+            
+            // Update the key type in the config
+            if (keyType === 'source') {
+                setTunnelConfig(prev => ({
+                    ...prev,
+                    sourceKeyType: detectedKeyType
+                }));
+            } else if (keyType === 'endpoint') {
+                setTunnelConfig(prev => ({
+                    ...prev,
+                    endPointKeyType: detectedKeyType
+                }));
+            }
+        };
+        reader.onerror = () => {
+            console.error('Error reading file');
+        };
+        reader.readAsText(file);
+    };
+    
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        
+        // Create a copy of the config with key data
+        const configWithKeys = { ...tunnelConfig };
+        
+        if (tunnelConfig.sourceAuthType === 'key' && sourceKey) {
+            configWithKeys.sourceKey = sourceKey;
+        }
+        
+        if (tunnelConfig.endPointAuthType === 'key' && endPointKey) {
+            configWithKeys.endPointKey = endPointKey;
+        }
+        
+        onAdd(configWithKeys);
+        setTunnelConfig(initialFormState);
+        setSourceKey(null);
+        setEndPointKey(null);
     };
     
     useEffect(() => {
@@ -158,6 +250,64 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                         <div className="border border-slate-700 rounded-lg p-4">
                             <h3 className="text-lg font-medium text-slate-200 mb-4">Source Configuration (Local Machine)</h3>
                             
+                            {/* SSHPass Info Alert */}
+                            <div className="bg-yellow-900/30 border border-yellow-700 rounded-md p-3 mb-4 text-yellow-200 text-sm">
+                                <div className="flex items-start">
+                                    <div className="flex-shrink-0 mt-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <h3 className="font-medium text-yellow-300">Required: sshpass installation</h3>
+                                        <div className="mt-1">
+                                            <p>For password-based authentication, <code className="bg-slate-800 px-1 rounded">sshpass</code> must be installed on both the local and remote servers.</p>
+                                            <p className="mt-1">Install using: <code className="bg-slate-800 px-1 rounded">sudo apt-get install sshpass</code> (on Debian/Ubuntu) or the equivalent for your system.</p>
+                                            <button
+                                                type="button"
+                                                className="text-yellow-300 hover:text-yellow-100 underline mt-1 text-xs"
+                                                onClick={() => setShowSshpassInfo(!showSshpassInfo)}
+                                            >
+                                                {showSshpassInfo ? 'Hide Details' : 'Show More Details'}
+                                            </button>
+                                            {showSshpassInfo && (
+                                                <div className="mt-2 bg-slate-800/50 p-2 rounded text-xs">
+                                                    <p><strong>Other installation methods:</strong></p>
+                                                    <ul className="list-disc list-inside mt-1">
+                                                        <li>CentOS/RHEL/Fedora: <code>sudo yum install sshpass</code> or <code>sudo dnf install sshpass</code></li>
+                                                        <li>macOS: <code>brew install hudochenkov/sshpass/sshpass</code></li>
+                                                        <li>Windows: Use WSL or consider using SSH key authentication instead</li>
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* SSH Config Alert */}
+                            <div className="bg-blue-900/30 border border-blue-700 rounded-md p-3 mb-4 text-blue-200 text-sm">
+                                <div className="flex items-start">
+                                    <div className="flex-shrink-0 mt-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <h3 className="font-medium text-blue-300">Required: SSH Server Configuration</h3>
+                                        <div className="mt-1">
+                                            <p>For reverse SSH tunnels to work, the endpoint SSH server must allow:</p>
+                                            <ul className="list-disc list-inside mt-1 space-y-1">
+                                                <li><code className="bg-slate-800 px-1 rounded">GatewayPorts yes</code> - Allows binding to remote ports</li>
+                                                <li><code className="bg-slate-800 px-1 rounded">AllowTcpForwarding yes</code> - Permits port forwarding</li>
+                                                <li><code className="bg-slate-800 px-1 rounded">PermitRootLogin yes</code> - (If using root user)</li>
+                                            </ul>
+                                            <p className="mt-2">Edit <code className="bg-slate-800 px-1 rounded">/etc/ssh/sshd_config</code> on the endpoint server and restart SSH with <code className="bg-slate-800 px-1 rounded">sudo systemctl restart sshd</code></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="sourceIp" className="block text-sm font-medium text-slate-300 mb-1">
@@ -206,37 +356,85 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                 </div>
                                 
                                 <div>
-                                    <label htmlFor="sourcePassword" className="block text-sm font-medium text-slate-300 mb-1">
-                                        Source Password
+                                    <label htmlFor="sourceAuthType" className="block text-sm font-medium text-slate-300 mb-1">
+                                        Authentication Method
                                     </label>
-                                    <div className="relative">
-                                        <input
-                                            id="sourcePassword"
-                                            name="sourcePassword"
-                                            type={showSourcePassword ? "text" : "password"}
-                                            required
-                                            value={tunnelConfig.sourcePassword}
-                                            onChange={handleChange}
-                                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
-                                            onClick={() => setShowSourcePassword(!showSourcePassword)}
-                                        >
-                                            {showSourcePassword ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                                </svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
+                                    <select
+                                        id="sourceAuthType"
+                                        name="sourceAuthType"
+                                        value={tunnelConfig.sourceAuthType}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="password">Password</option>
+                                        <option value="key">SSH Key</option>
+                                    </select>
                                 </div>
+                                
+                                {tunnelConfig.sourceAuthType === 'password' ? (
+                                    <div className="md:col-span-2">
+                                        <label htmlFor="sourcePassword" className="block text-sm font-medium text-slate-300 mb-1">
+                                            Source Password
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                id="sourcePassword"
+                                                name="sourcePassword"
+                                                type={showSourcePassword ? "text" : "password"}
+                                                required={tunnelConfig.sourceAuthType === 'password'}
+                                                value={tunnelConfig.sourcePassword}
+                                                onChange={handleChange}
+                                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <button
+                                                type="button"
+                                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                                                onClick={() => setShowSourcePassword(!showSourcePassword)}
+                                            >
+                                                {showSourcePassword ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="md:col-span-2">
+                                            <label htmlFor="sourceKey" className="block text-sm font-medium text-slate-300 mb-1">
+                                                SSH Private Key
+                                            </label>
+                                            <div className="relative">
+                                                <label 
+                                                    className={`w-full px-3 py-2 bg-slate-700 border ${sourceKey ? 'border-green-600 bg-green-900/20' : 'border-slate-600'} rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center cursor-pointer hover:bg-slate-600`}
+                                                >
+                                                    <input
+                                                        ref={sourceKeyInputRef}
+                                                        id="sourceKey"
+                                                        name="sourceKey"
+                                                        type="file"
+                                                        onChange={(e) => handleFileChange(e, setSourceKey, 'source')}
+                                                        className="hidden"
+                                                        required={tunnelConfig.sourceAuthType === 'key'}
+                                                    />
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                                    </svg>
+                                                    <span className={`truncate ${sourceKey ? 'text-green-300' : 'text-slate-300'}`}>
+                                                        {sourceKey ? 'Key Selected' : 'Choose Private Key File (id_rsa, id_ed25519, etc.)'}
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <p className="mt-1 text-xs text-slate-400">Upload your private key file (e.g., id_rsa, id_ed25519){sourceKey && <> - Detected <span className="font-medium text-blue-400">{tunnelConfig.sourceKeyType.toUpperCase()}</span> key</>}</p>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                         
@@ -292,37 +490,85 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                 </div>
                                 
                                 <div>
-                                    <label htmlFor="endPointPassword" className="block text-sm font-medium text-slate-300 mb-1">
-                                        Endpoint Password
+                                    <label htmlFor="endPointAuthType" className="block text-sm font-medium text-slate-300 mb-1">
+                                        Authentication Method
                                     </label>
-                                    <div className="relative">
-                                        <input
-                                            id="endPointPassword"
-                                            name="endPointPassword"
-                                            type={showEndpointPassword ? "text" : "password"}
-                                            required
-                                            value={tunnelConfig.endPointPassword}
-                                            onChange={handleChange}
-                                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
-                                            onClick={() => setShowEndpointPassword(!showEndpointPassword)}
-                                        >
-                                            {showEndpointPassword ? (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                                </svg>
-                                            ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
+                                    <select
+                                        id="endPointAuthType"
+                                        name="endPointAuthType"
+                                        value={tunnelConfig.endPointAuthType}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="password">Password</option>
+                                        <option value="key">SSH Key</option>
+                                    </select>
                                 </div>
+                                
+                                {tunnelConfig.endPointAuthType === 'password' ? (
+                                    <div className="md:col-span-2">
+                                        <label htmlFor="endPointPassword" className="block text-sm font-medium text-slate-300 mb-1">
+                                            Endpoint Password
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                id="endPointPassword"
+                                                name="endPointPassword"
+                                                type={showEndpointPassword ? "text" : "password"}
+                                                required={tunnelConfig.endPointAuthType === 'password'}
+                                                value={tunnelConfig.endPointPassword}
+                                                onChange={handleChange}
+                                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <button
+                                                type="button"
+                                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
+                                                onClick={() => setShowEndpointPassword(!showEndpointPassword)}
+                                            >
+                                                {showEndpointPassword ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="md:col-span-2">
+                                            <label htmlFor="endPointKey" className="block text-sm font-medium text-slate-300 mb-1">
+                                                SSH Private Key
+                                            </label>
+                                            <div className="relative">
+                                                <label 
+                                                    className={`w-full px-3 py-2 bg-slate-700 border ${endPointKey ? 'border-green-600 bg-green-900/20' : 'border-slate-600'} rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center cursor-pointer hover:bg-slate-600`}
+                                                >
+                                                    <input
+                                                        ref={endPointKeyInputRef}
+                                                        id="endPointKey"
+                                                        name="endPointKey"
+                                                        type="file"
+                                                        onChange={(e) => handleFileChange(e, setEndPointKey, 'endpoint')}
+                                                        className="hidden"
+                                                        required={tunnelConfig.endPointAuthType === 'key'}
+                                                    />
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                                    </svg>
+                                                    <span className={`truncate ${endPointKey ? 'text-green-300' : 'text-slate-300'}`}>
+                                                        {endPointKey ? 'Key Selected' : 'Choose Private Key File (id_rsa, id_ed25519, etc.)'}
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <p className="mt-1 text-xs text-slate-400">Upload your private key file (e.g., id_rsa, id_ed25519){endPointKey && <> - Detected <span className="font-medium text-blue-400">{tunnelConfig.endPointKeyType.toUpperCase()}</span> key</>}</p>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                         

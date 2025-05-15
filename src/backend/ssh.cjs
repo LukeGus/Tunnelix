@@ -303,7 +303,12 @@ function verifyTunnelConnection(tunnelName, hostConfig, isPeriodic = false, sock
         verificationConn.on("ready", () => {
             clearTimeout(initialConnectTimeout);
             
-            const checkCmd = `sshpass -p '${hostConfig.endPointPassword}' ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no ${hostConfig.endPointUser}@${hostConfig.endPointIp} "nc -z localhost ${hostConfig.endPointPort} && echo 'PORT_ACTIVE' || echo 'PORT_INACTIVE'"`;
+            let checkCmd;
+            if (hostConfig.endPointAuthType === "key") {
+                checkCmd = `ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no ${hostConfig.endPointUser}@${hostConfig.endPointIp} "nc -z localhost ${hostConfig.endPointPort} && echo 'PORT_ACTIVE' || echo 'PORT_INACTIVE'"`;
+            } else {
+                checkCmd = `sshpass -p '${hostConfig.endPointPassword}' ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no ${hostConfig.endPointUser}@${hostConfig.endPointIp} "nc -z localhost ${hostConfig.endPointPort} && echo 'PORT_ACTIVE' || echo 'PORT_INACTIVE'"`;
+            }
             
             verificationConn.exec(checkCmd, (err, stream) => {
                 if (err) {
@@ -370,13 +375,20 @@ function verifyTunnelConnection(tunnelName, hostConfig, isPeriodic = false, sock
             timeout: verificationTimeout
         });
         
-        verificationConn.connect({
+        const connOptions = {
             host: hostConfig.sourceIp,
             port: hostConfig.sourceSSHPort,
             username: hostConfig.sourceUser,
-            password: hostConfig.sourcePassword || undefined,
             readyTimeout: 10000
-        });
+        };
+        
+        if (hostConfig.sourceAuthType === "key" && hostConfig.sourceKey) {
+            connOptions.privateKey = hostConfig.sourceKey;
+        } else {
+            connOptions.password = hostConfig.sourcePassword || undefined;
+        }
+        
+        verificationConn.connect(connOptions);
         
         function cleanupVerification(isSuccessful, failureReason = "Unknown verification failure") {
             if (verificationTimeout) {
@@ -859,7 +871,12 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
             return;
         }
         
-        const tunnelCmd = `sshpass -p '${hostConfig.endPointPassword}' ssh -T -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R ${hostConfig.endPointPort}:localhost:${hostConfig.sourcePort} ${hostConfig.endPointUser}@${hostConfig.endPointIp}`;
+        let tunnelCmd;
+        if (hostConfig.endPointAuthType === "key") {
+            tunnelCmd = `ssh -T -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R ${hostConfig.endPointPort}:localhost:${hostConfig.sourcePort} ${hostConfig.endPointUser}@${hostConfig.endPointIp}`;
+        } else {
+            tunnelCmd = `sshpass -p '${hostConfig.endPointPassword}' ssh -T -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -R ${hostConfig.endPointPort}:localhost:${hostConfig.sourcePort} ${hostConfig.endPointUser}@${hostConfig.endPointIp}`;
+        }
 
         conn.exec(tunnelCmd, (err, stream) => {
             if (err) {
@@ -1013,16 +1030,23 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
         });
     });
 
-    conn.connect({
+    const connOptions = {
         host: hostConfig.sourceIp,
         port: hostConfig.sourceSSHPort,
         username: hostConfig.sourceUser,
-        password: hostConfig.sourcePassword || undefined,
         keepaliveInterval: 5000,
         keepaliveCountMax: 10,
         readyTimeout: 10000,
         tcpKeepAlive: true,
-    });
+    };
+    
+    if (hostConfig.sourceAuthType === "key" && hostConfig.sourceKey) {
+        connOptions.privateKey = hostConfig.sourceKey;
+    } else {
+        connOptions.password = hostConfig.sourcePassword || undefined;
+    }
+    
+    conn.connect(connOptions);
     
     return conn;
 }
