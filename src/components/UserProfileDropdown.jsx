@@ -131,6 +131,10 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
                             Delete Account
                         </button>
                     )}
+                    
+                    <div className="mt-2 px-4 py-1 border-t border-slate-700">
+                        <p className="text-slate-500 text-xs text-right">v0.1</p>
+                    </div>
                 </div>
             )}
 

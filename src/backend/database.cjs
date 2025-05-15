@@ -93,6 +93,17 @@ function initializeDatabase() {
             FOREIGN KEY (tunnelId) REFERENCES tunnels(id)
         )
     `).run();
+    
+    db.prepare(`
+        CREATE TABLE IF NOT EXISTS ssh_keys (
+            id TEXT PRIMARY KEY,
+            tunnelId TEXT NOT NULL,
+            keyType TEXT NOT NULL,
+            keyData BLOB NOT NULL,
+            forConnection TEXT NOT NULL,
+            FOREIGN KEY (tunnelId) REFERENCES tunnels(id)
+        )
+    `).run();
 
     const userTableInfo = db.prepare(`PRAGMA table_info(users)`).all();
     const hasIsAdminColumn = userTableInfo.some(column => column.name === 'isAdmin');
@@ -177,7 +188,17 @@ const statements = {
     deleteTunnelUsers: db.prepare('DELETE FROM tunnel_users WHERE tunnelId = ?'),
     deleteTunnelTags: db.prepare('DELETE FROM tunnel_tags WHERE tunnelId = ?'),
     removeTunnelUser: db.prepare('DELETE FROM tunnel_users WHERE tunnelId = ? AND userId = ?'),
-    checkTunnelSharing: db.prepare('SELECT * FROM tunnel_users WHERE tunnelId = ? AND userId = ?')
+    checkTunnelSharing: db.prepare('SELECT * FROM tunnel_users WHERE tunnelId = ? AND userId = ?'),
+    
+    saveSourceSSHKey: db.prepare('INSERT INTO ssh_keys (id, tunnelId, keyType, keyData, forConnection) VALUES (?, ?, ?, ?, \'source\')'),
+    saveEndpointSSHKey: db.prepare('INSERT INTO ssh_keys (id, tunnelId, keyType, keyData, forConnection) VALUES (?, ?, ?, ?, \'endpoint\')'),
+    getSourceSSHKey: db.prepare('SELECT * FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'source\''),
+    getEndpointSSHKey: db.prepare('SELECT * FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'endpoint\''),
+    updateSourceSSHKey: db.prepare('UPDATE ssh_keys SET keyType = ?, keyData = ? WHERE tunnelId = ? AND forConnection = \'source\''),
+    updateEndpointSSHKey: db.prepare('UPDATE ssh_keys SET keyType = ?, keyData = ? WHERE tunnelId = ? AND forConnection = \'endpoint\''),
+    deleteSSHKeys: db.prepare('DELETE FROM ssh_keys WHERE tunnelId = ?'),
+    checkSourceSSHKey: db.prepare('SELECT COUNT(*) as count FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'source\''),
+    checkEndpointSSHKey: db.prepare('SELECT COUNT(*) as count FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'endpoint\'')
 };
 
 function generateId() {
@@ -196,6 +217,35 @@ function getTunnelWithDetails(tunnel, userId, sessionToken) {
     
     const decryptedConfig = decryptData(tunnel.config, createdBy.id, createdBy.sessionToken);
     if (!decryptedConfig) return null;
+    
+    const sourceSSHKey = statements.getSourceSSHKey.get(tunnel.id);
+    const endpointSSHKey = statements.getEndpointSSHKey.get(tunnel.id);
+    
+    if (sourceSSHKey) {
+        decryptedConfig.sourceAuthType = "key";
+        decryptedConfig.sourceKeyType = sourceSSHKey.keyType;
+        decryptedConfig.hasSourceKey = true;
+        
+        if (tunnel.createdBy === userId) {
+            decryptedConfig.sourceKey = sourceSSHKey.keyData;
+        }
+    } else {
+        decryptedConfig.sourceAuthType = "password";
+        decryptedConfig.hasSourceKey = false;
+    }
+    
+    if (endpointSSHKey) {
+        decryptedConfig.endPointAuthType = "key";
+        decryptedConfig.endPointKeyType = endpointSSHKey.keyType;
+        decryptedConfig.hasEndPointKey = true;
+        
+        if (tunnel.createdBy === userId) {
+            decryptedConfig.endPointKey = endpointSSHKey.keyData;
+        }
+    } else {
+        decryptedConfig.endPointAuthType = "password";
+        decryptedConfig.hasEndPointKey = false;
+    }
     
     return {
         ...tunnel,
@@ -511,16 +561,28 @@ io.on('connection', (socket) => {
                 return callback({ error: 'Invalid session' });
             }
 
+            const sourceAuthType = tunnelConfig.sourceAuthType || "password";
+            const endPointAuthType = tunnelConfig.endPointAuthType || "password";
+            
+            const sourceKeyMissingButRequired = sourceAuthType === "key" && !tunnelConfig.sourceKey;
+            const endPointKeyMissingButRequired = endPointAuthType === "key" && !tunnelConfig.endPointKey;
+            
+            if (sourceKeyMissingButRequired || endPointKeyMissingButRequired) {
+                return callback({ error: 'SSH key is required when using key authentication' });
+            }
+            
             const cleanConfig = {
                 name: (tunnelConfig.name?.trim()) || '',
                 sourceIp: (tunnelConfig.sourceIp?.trim()) || '',
                 sourceUser: (tunnelConfig.sourceUser?.trim()) || '',
-                sourcePassword: (tunnelConfig.sourcePassword?.trim()) || '',
+                sourceAuthType: sourceAuthType,
+                sourcePassword: sourceAuthType === "password" ? (tunnelConfig.sourcePassword?.trim()) || '' : '',
                 sourceSSHPort: tunnelConfig.sourceSSHPort || 22,
                 sourcePort: tunnelConfig.sourcePort || 22,
                 endPointIp: (tunnelConfig.endPointIp?.trim()) || '',
                 endPointUser: (tunnelConfig.endPointUser?.trim()) || '',
-                endPointPassword: (tunnelConfig.endPointPassword?.trim()) || '',
+                endPointAuthType: endPointAuthType,
+                endPointPassword: endPointAuthType === "password" ? (tunnelConfig.endPointPassword?.trim()) || '' : '',
                 endPointSSHPort: tunnelConfig.endPointSSHPort || 22,
                 endPointPort: tunnelConfig.endPointPort || 0,
                 retryConfig: tunnelConfig.retryConfig || {
@@ -577,6 +639,26 @@ io.on('connection', (socket) => {
                     });
                 }
                 
+                if (sourceAuthType === "key" && tunnelConfig.sourceKey) {
+                    const keyId = generateId();
+                    statements.saveSourceSSHKey.run(
+                        keyId,
+                        tunnelId,
+                        tunnelConfig.sourceKeyType || "rsa",
+                        tunnelConfig.sourceKey
+                    );
+                }
+                
+                if (endPointAuthType === "key" && tunnelConfig.endPointKey) {
+                    const keyId = generateId();
+                    statements.saveEndpointSSHKey.run(
+                        keyId,
+                        tunnelId,
+                        tunnelConfig.endPointKeyType || "rsa",
+                        tunnelConfig.endPointKey
+                    );
+                }
+                
                 return tunnelId;
             });
 
@@ -623,6 +705,35 @@ io.on('connection', (socket) => {
                     
                     if (!decryptedConfig) {
                         continue;
+                    }
+                    
+                    const sourceSSHKey = statements.getSourceSSHKey.get(tunnel.id);
+                    const endpointSSHKey = statements.getEndpointSSHKey.get(tunnel.id);
+                    
+                    if (sourceSSHKey) {
+                        decryptedConfig.sourceAuthType = "key";
+                        decryptedConfig.sourceKeyType = sourceSSHKey.keyType;
+                        decryptedConfig.hasSourceKey = true;
+                        
+                        if (tunnel.createdBy === userId) {
+                            decryptedConfig.sourceKey = sourceSSHKey.keyData;
+                        }
+                    } else {
+                        decryptedConfig.sourceAuthType = "password";
+                        decryptedConfig.hasSourceKey = false;
+                    }
+                    
+                    if (endpointSSHKey) {
+                        decryptedConfig.endPointAuthType = "key";
+                        decryptedConfig.endPointKeyType = endpointSSHKey.keyType;
+                        decryptedConfig.hasEndPointKey = true;
+                        
+                        if (tunnel.createdBy === userId) {
+                            decryptedConfig.endPointKey = endpointSSHKey.keyData;
+                        }
+                    } else {
+                        decryptedConfig.endPointAuthType = "password";
+                        decryptedConfig.hasEndPointKey = false;
                     }
 
                     detailedTunnels.push({
@@ -671,16 +782,24 @@ io.on('connection', (socket) => {
                 return callback({ error: 'You do not have permission to edit this tunnel' });
             }
 
+            const sourceAuthType = tunnelConfig.sourceAuthType || "password";
+            const endPointAuthType = tunnelConfig.endPointAuthType || "password";
+            
+            const sourceKeyUpdated = sourceAuthType === "key" && tunnelConfig.sourceKey;
+            const endPointKeyUpdated = endPointAuthType === "key" && tunnelConfig.endPointKey;
+            
             const cleanConfig = {
                 name: (tunnelConfig.name?.trim()) || tunnel.name,
                 sourceIp: (tunnelConfig.sourceIp?.trim()) || '',
                 sourceUser: (tunnelConfig.sourceUser?.trim()) || '',
-                sourcePassword: (tunnelConfig.sourcePassword?.trim()) || '',
+                sourceAuthType: sourceAuthType,
+                sourcePassword: sourceAuthType === "password" ? (tunnelConfig.sourcePassword?.trim()) || '' : '',
                 sourceSSHPort: tunnelConfig.sourceSSHPort || 22,
                 sourcePort: tunnelConfig.sourcePort || 22,
                 endPointIp: (tunnelConfig.endPointIp?.trim()) || '',
                 endPointUser: (tunnelConfig.endPointUser?.trim()) || '',
-                endPointPassword: (tunnelConfig.endPointPassword?.trim()) || '',
+                endPointAuthType: endPointAuthType,
+                endPointPassword: endPointAuthType === "password" ? (tunnelConfig.endPointPassword?.trim()) || '' : '',
                 endPointSSHPort: tunnelConfig.endPointSSHPort || 22,
                 endPointPort: tunnelConfig.endPointPort || 0,
                 retryConfig: tunnelConfig.retryConfig || {
@@ -732,6 +851,54 @@ io.on('connection', (socket) => {
                     cleanConfig.tags.forEach(tag => {
                         statements.addTunnelTag.run(tunnelId, tag);
                     });
+                }
+                
+                const hasSourceKey = statements.checkSourceSSHKey.get(tunnelId).count > 0;
+                
+                if (sourceAuthType === "key") {
+                    if (sourceKeyUpdated) {
+                        if (hasSourceKey) {
+                            statements.updateSourceSSHKey.run(
+                                tunnelConfig.sourceKeyType || "rsa",
+                                tunnelConfig.sourceKey,
+                                tunnelId
+                            );
+                        } else {
+                            const keyId = generateId();
+                            statements.saveSourceSSHKey.run(
+                                keyId,
+                                tunnelId,
+                                tunnelConfig.sourceKeyType || "rsa",
+                                tunnelConfig.sourceKey
+                            );
+                        }
+                    }
+                } else if (hasSourceKey) {
+                    statements.deleteSSHKeys.run(tunnelId);
+                }
+                
+                const hasEndpointKey = statements.checkEndpointSSHKey.get(tunnelId).count > 0;
+                
+                if (endPointAuthType === "key") {
+                    if (endPointKeyUpdated) {
+                        if (hasEndpointKey) {
+                            statements.updateEndpointSSHKey.run(
+                                tunnelConfig.endPointKeyType || "rsa",
+                                tunnelConfig.endPointKey,
+                                tunnelId
+                            );
+                        } else {
+                            const keyId = generateId();
+                            statements.saveEndpointSSHKey.run(
+                                keyId,
+                                tunnelId,
+                                tunnelConfig.endPointKeyType || "rsa",
+                                tunnelConfig.endPointKey
+                            );
+                        }
+                    }
+                } else if (hasEndpointKey) {
+                    statements.deleteSSHKeys.run(tunnelId);
                 }
                 
                 return tunnelId;
@@ -826,6 +993,7 @@ io.on('connection', (socket) => {
                 }
 
                 if (tunnel.createdBy === userId) {
+                    statements.deleteSSHKeys.run(tunnelId);
                     statements.deleteTunnelTags.run(tunnelId);
                     statements.deleteTunnelUsers.run(tunnelId);
                     statements.deleteTunnel.run(tunnelId, userId);
