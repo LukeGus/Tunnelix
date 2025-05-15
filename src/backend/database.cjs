@@ -54,7 +54,7 @@ logger.info(`Connected to SQLite database at ${dbPath}`);
 // Create HTTP server and Socket.io
 const server = http.createServer();
 const io = socketIo(server, {
-    path: '/tunnelix.io/socket.io',
+    path: '/database.io/socket.io',
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
