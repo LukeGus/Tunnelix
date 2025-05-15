@@ -35,7 +35,6 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
 
         if (user?.isAdmin) {
             try {
-                // Assuming this is available through the user ref
                 const admins = await window.userRef?.current?.getAllAdmins();
                 
                 if (admins && admins.length === 1) {

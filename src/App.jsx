@@ -90,20 +90,20 @@ function App() {
     const handleLoginSuccess = (user) => {
         setCurrentUser(user);
         setIsLoginModalOpen(false);
-        setError(''); // Clear any errors when login succeeds
+        setError('');
     };
     
     const handleCreateSuccess = (user) => {
         setCurrentUser(user);
         setIsLoginModalOpen(false);
-        setError(''); // Clear any errors when account creation succeeds
+        setError('');
     };
     
     const handleDeleteSuccess = () => {
         setCurrentUser(null);
         setTunnels([]);
         setIsLoginModalOpen(true);
-        setError(''); // Clear any errors when account is deleted
+        setError('');
     };
     
     const handleFailure = (errorMessage) => {
@@ -161,8 +161,8 @@ function App() {
         try {
             if (userRef.current) {
                 await userRef.current.saveTunnel(tunnelConfig);
-                setIsAddModalOpen(false); // Close the modal first
-                await loadTunnels(); // Then reload tunnels
+                setIsAddModalOpen(false);
+                await loadTunnels();
             }
         } catch (error) {
             setError("Failed to add tunnel: " + error.message);
@@ -173,7 +173,7 @@ function App() {
         try {
             if (userRef.current && selectedTunnel) {
                 await userRef.current.editTunnel(selectedTunnel.id, tunnelConfig);
-                await loadTunnels(); // Reload tunnels after editing
+                await loadTunnels();
                 setIsEditModalOpen(false);
                 setSelectedTunnel(null);
             }
@@ -260,7 +260,7 @@ function App() {
             {/* Login Modal */}
             <LoginModal
                 isVisible={isLoginModalOpen}
-                onClose={() => {}} // Can't be closed manually
+                onClose={() => {}}
                 onLogin={handleLogin}
                 onRegister={handleRegister}
                 onGuest={handleGuestLogin}

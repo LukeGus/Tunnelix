@@ -512,7 +512,7 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
         }
     };
 
-    return null; // This component doesn't render anything
+    return null;
 });
 
 User.propTypes = {

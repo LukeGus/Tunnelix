@@ -27,14 +27,14 @@ const logger = {
 };
 
 const activeTunnels = new Map();
-const retryCounters = new Map(); // Maps tunnel name to current retry count
+const retryCounters = new Map();
 const connectionStatus = new Map();
 const tunnelVerifications = new Map();
 const manualDisconnects = new Set();
 const verificationTimers = new Map();
-const activeRetryTimers = new Map(); // Track active retry timers by tunnel name
+const activeRetryTimers = new Map();
 const retryExhaustedTunnels = new Set();
-const remoteClosureEvents = new Map(); // Maps tunnel name to count of remote closure events
+const remoteClosureEvents = new Map();
 
 const CONNECTION_STATES = {
     DISCONNECTED: "disconnected",
@@ -57,7 +57,7 @@ const ERROR_TYPES = {
 
 function broadcastTunnelStatus(tunnelName, status) {
     if (status.status === CONNECTION_STATES.CONNECTED && activeRetryTimers.has(tunnelName)) {
-        return; // Don't broadcast 'connected' while a retry is scheduled
+        return;
     }
     
     if (retryExhaustedTunnels.has(tunnelName) && status.status === CONNECTION_STATES.FAILED) {
@@ -459,7 +459,7 @@ function verifyTunnelConnection(tunnelName, hostConfig, isPeriodic = false, sock
                     const timer = setTimeout(() => {
                         const latestStatus = connectionStatus.get(tunnelName);
                         if (latestStatus && latestStatus.status === CONNECTION_STATES.CONNECTED) {
-                            verifyTunnelConnection(tunnelName, hostConfig, true, socket); // Note the true for isPeriodic
+                            verifyTunnelConnection(tunnelName, hostConfig, true, socket);
                         }
                     }, hostConfig.refreshInterval);
                     
@@ -480,7 +480,7 @@ function verifyTunnelConnection(tunnelName, hostConfig, isPeriodic = false, sock
                         }
                         
                         broadcastTunnelStatus(tunnelName, { 
-                            connected: true,  // Still technically connected
+                            connected: true,
                             status: CONNECTION_STATES.UNSTABLE
                         });
                         
@@ -495,7 +495,7 @@ function verifyTunnelConnection(tunnelName, hostConfig, isPeriodic = false, sock
                             }
                             
                             verifyTunnelConnection(tunnelName, hostConfig, false, socket);
-                        }, 3000); // Faster check to minimize "stuck" state time
+                        }, 3000);
                         
                         verificationTimers.set(`${tunnelName}_confirm`, confirmationTimer);
                     } else {
@@ -540,7 +540,7 @@ function verifyTunnelConnection(tunnelName, hostConfig, isPeriodic = false, sock
                     
                     if (!manualDisconnects.has(tunnelName)) {
                         if (activeRetryTimers.has(tunnelName)) {
-                            return; // Don't update status if a retry is already pending
+                            return;
                         }
                         
                         activeTunnels.delete(tunnelName);
@@ -757,7 +757,7 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
     
     const connectionTimeout = setTimeout(() => {
         if (conn) {
-            logger.error(`Connection timeout for '${tunnelName}'`); // KEEP THIS ERROR LOG
+            logger.error(`Connection timeout for '${tunnelName}'`);
             
             if (activeRetryTimers.has(tunnelName)) {
                 return;
@@ -785,7 +785,7 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
 
     conn.on("error", (err) => {
         clearTimeout(connectionTimeout);
-        logger.error(`SSH error for '${tunnelName}': ${err.message}`); // KEEP THIS ERROR LOG
+        logger.error(`SSH error for '${tunnelName}': ${err.message}`);
         
         if (activeRetryTimers.has(tunnelName)) {
             return;
@@ -863,7 +863,7 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
 
         conn.exec(tunnelCmd, (err, stream) => {
             if (err) {
-                logger.error(`Connection error for '${tunnelName}': ${err.message}`); // KEEP THIS ERROR LOG
+                logger.error(`Connection error for '${tunnelName}': ${err.message}`);
                 
                 try { conn.end(); } catch(e) {}
                 
@@ -913,7 +913,7 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
                     tunnelVerifications.delete(tunnelName);
                 }
                 
-                const isLikelyRemoteClosure = code === 255; // SSH typically returns 255 for remote closures
+                const isLikelyRemoteClosure = code === 255;
                 
                 if (isLikelyRemoteClosure && retryExhaustedTunnels.has(tunnelName)) {
                     retryExhaustedTunnels.delete(tunnelName);
@@ -955,7 +955,7 @@ function connectSSHTunnel(hostConfig, retryAttempt = 0, socket = null) {
                 const errorMsg = data.toString();
                 
                 if (!errorMsg.includes("Pseudo-terminal will not be allocated")) {
-                    logger.error(`Error for '${tunnelName}': ${errorMsg.trim()}`); // KEEP THIS ERROR LOG
+                    logger.error(`Error for '${tunnelName}': ${errorMsg.trim()}`);
                     
                     if (socket && socket.connected) {
                         socket.emit("error", { 
@@ -1112,7 +1112,7 @@ function startLivenessChecks() {
                 }
             }
         });
-    }, 30000); // Check every 30 seconds (reduced frequency)
+    }, 30000);
 }
 
 function findHostConfigByName(tunnelName) {
@@ -1147,5 +1147,5 @@ function resetRetryState(tunnelName) {
 }
 
 server.listen(8082, '0.0.0.0', () => {
-    logger.info("SSH Tunnel Server running on port 8082"); // KEEP THIS SERVER START LOG
+    logger.info("SSH Tunnel Server running on port 8082");
 });

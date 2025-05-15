@@ -108,7 +108,7 @@ export const NewTunnel = ({ hostConfig }) => {
                 const retryData = {
                     current: status.retryCount, 
                     max: status.maxRetries || hostConfig.retryConfig?.maxRetries || 3,
-                    nextIn: status.nextRetryIn || 5 // Keep this for static display
+                    nextIn: status.nextRetryIn || 5
                 };
                 
                 setRetryInfo(retryData);
