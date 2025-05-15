@@ -246,10 +246,21 @@ export const User = forwardRef(({ onLoginSuccess, onCreateSuccess, onDeleteSucce
 
     // Logout the current user
     const logoutUser = () => {
+        // Clear storage first
         localStorage.removeItem("sessionToken");
         currentUser.current = null;
         
-        // Explicitly notify app to show login modal
+        // Force a disconnect and reconnect to reset socket state
+        try {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+                socketRef.current.connect();
+            }
+        } catch (e) {
+            // Ignore connection errors during logout
+        }
+        
+        // Explicitly notify app to show login modal and clear user state
         if (onLoginSuccess) {
             onLoginSuccess(null);
         }

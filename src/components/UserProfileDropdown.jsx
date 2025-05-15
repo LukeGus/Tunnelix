@@ -85,7 +85,7 @@ export const UserProfileDropdown = ({ user, onLogout, onDeleteAccount, onOpenAdm
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={toggleDropdown}
-                className="flex items-center px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-md focus:outline-none"
+                className="flex items-center px-3 h-9 bg-slate-700 hover:bg-slate-600 rounded-md focus:outline-none"
                 aria-label="User menu"
             >
                 <span className="text-white text-sm">

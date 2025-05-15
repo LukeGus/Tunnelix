@@ -39,17 +39,28 @@ function App() {
     useEffect(() => {
         const checkSession = async () => {
             setLoading(true);
-            const storedSession = localStorage.getItem("sessionToken");
-            
-            if (storedSession) {
-                // Session exists, verify will happen in User component
-                setIsLoginModalOpen(false);
-            } else {
-                // No session, show login modal
+            try {
+                const storedSession = localStorage.getItem("sessionToken");
+                
+                if (storedSession) {
+                    // Session exists, verify will happen in User component
+                    // Keep loading state true until User component completes verification
+                    setIsLoginModalOpen(false);
+                    
+                    // Set a timeout to prevent infinite loading
+                    setTimeout(() => {
+                        setLoading(false);
+                    }, 3000);
+                } else {
+                    // No session, show login modal
+                    setIsLoginModalOpen(true);
+                    setLoading(false);
+                }
+            } catch (error) {
+                // Handle any errors
                 setIsLoginModalOpen(true);
+                setLoading(false);
             }
-            
-            setLoading(false);
         };
         
         checkSession();
@@ -61,6 +72,8 @@ function App() {
             setIsLoginModalOpen(true);
         } else {
             setIsLoginModalOpen(false);
+            // When user is set, we're definitely done loading
+            setLoading(false);
         }
     }, [currentUser]);
     
@@ -76,7 +89,6 @@ function App() {
         try {
             if (userRef.current && currentUser) {
                 const fetchedTunnels = await userRef.current.getAllTunnels();
-                console.log("Loaded tunnels:", fetchedTunnels.length);
                 setTunnels(fetchedTunnels);
             }
         } catch (error) {
@@ -247,7 +259,10 @@ function App() {
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-                <div className="text-white">Loading...</div>
+                <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                    <div className="text-white text-lg">Loading Tunnelix...</div>
+                </div>
             </div>
         );
     }
@@ -328,19 +343,6 @@ function App() {
                 )}
             </div>
             
-            {/* Error Display */}
-            {error && (
-                <div className="bg-red-900/50 text-red-200 p-3 m-4 rounded-md">
-                    <button 
-                        onClick={() => setError('')}
-                        className="float-right text-red-200 hover:text-white"
-                    >
-                        ✕
-                    </button>
-                    {error}
-                </div>
-            )}
-
             {/* Tunnels Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
                 {tunnels.map((tunnel) => (

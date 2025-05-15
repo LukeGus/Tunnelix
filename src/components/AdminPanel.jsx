@@ -58,7 +58,6 @@ export const AdminPanel = ({ isOpen, onClose, userRef }) => {
                         loadAdmins()
                     ]);
                 } catch (error) {
-                    console.error("Error loading admin panel data:", error);
                     setErrorMessage("Failed to load admin panel data. Please try again.");
                 } finally {
                     // Always set loading to false when done
