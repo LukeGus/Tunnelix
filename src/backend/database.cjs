@@ -71,6 +71,7 @@ function initializeDatabase() {
             createdBy TEXT NOT NULL,
             folder TEXT,
             isPinned INTEGER DEFAULT 0,
+            autoStart INTEGER DEFAULT 0,
             FOREIGN KEY (createdBy) REFERENCES users(id)
         )
     `).run();
@@ -110,6 +111,13 @@ function initializeDatabase() {
     
     if (!hasIsAdminColumn) {
         db.prepare(`ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0`).run();
+    }
+    
+    const tunnelsTableInfo = db.prepare(`PRAGMA table_info(tunnels)`).all();
+    const hasAutoStartColumn = tunnelsTableInfo.some(column => column.name === 'autoStart');
+    
+    if (!hasAutoStartColumn) {
+        db.prepare(`ALTER TABLE tunnels ADD COLUMN autoStart INTEGER DEFAULT 0`).run();
     }
     
     logger.info('Database tables initialized');
@@ -172,7 +180,7 @@ const statements = {
     findAllAdmins: db.prepare('SELECT id, username FROM users WHERE isAdmin = 1'),
     updateUserAdmin: db.prepare('UPDATE users SET isAdmin = ? WHERE username = ?'),
     
-    createTunnel: db.prepare('INSERT INTO tunnels (id, name, config, createdBy, folder, isPinned) VALUES (?, ?, ?, ?, ?, ?)'),
+    createTunnel: db.prepare('INSERT INTO tunnels (id, name, config, createdBy, folder, isPinned, autoStart) VALUES (?, ?, ?, ?, ?, ?, ?)'),
     addTunnelUser: db.prepare('INSERT INTO tunnel_users (tunnelId, userId) VALUES (?, ?)'),
     addTunnelTag: db.prepare('INSERT INTO tunnel_tags (tunnelId, tag) VALUES (?, ?)'),
     findTunnelById: db.prepare('SELECT * FROM tunnels WHERE id = ?'),
@@ -183,7 +191,7 @@ const statements = {
     findTunnelsByName: db.prepare('SELECT * FROM tunnels WHERE createdBy = ? AND LOWER(name) = LOWER(?)'),
     findTunnelUsers: db.prepare('SELECT userId FROM tunnel_users WHERE tunnelId = ?'),
     findTunnelTags: db.prepare('SELECT tag FROM tunnel_tags WHERE tunnelId = ?'),
-    updateTunnel: db.prepare('UPDATE tunnels SET name = ?, config = ?, folder = ?, isPinned = ? WHERE id = ?'),
+    updateTunnel: db.prepare('UPDATE tunnels SET name = ?, config = ?, folder = ?, isPinned = ?, autoStart = ? WHERE id = ?'),
     deleteTunnel: db.prepare('DELETE FROM tunnels WHERE id = ? AND createdBy = ?'),
     deleteTunnelUsers: db.prepare('DELETE FROM tunnel_users WHERE tunnelId = ?'),
     deleteTunnelTags: db.prepare('DELETE FROM tunnel_tags WHERE tunnelId = ?'),
@@ -198,7 +206,8 @@ const statements = {
     updateEndpointSSHKey: db.prepare('UPDATE ssh_keys SET keyType = ?, keyData = ? WHERE tunnelId = ? AND forConnection = \'endpoint\''),
     deleteSSHKeys: db.prepare('DELETE FROM ssh_keys WHERE tunnelId = ?'),
     checkSourceSSHKey: db.prepare('SELECT COUNT(*) as count FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'source\''),
-    checkEndpointSSHKey: db.prepare('SELECT COUNT(*) as count FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'endpoint\'')
+    checkEndpointSSHKey: db.prepare('SELECT COUNT(*) as count FROM ssh_keys WHERE tunnelId = ? AND forConnection = \'endpoint\''),
+    findAutoStartTunnels: db.prepare('SELECT t.*, u.sessionToken FROM tunnels t JOIN users u ON t.createdBy = u.id WHERE t.autoStart = 1')
 };
 
 function generateId() {
@@ -592,7 +601,8 @@ io.on('connection', (socket) => {
                 refreshInterval: tunnelConfig.refreshInterval || 10000,
                 tags: Array.isArray(tunnelConfig.tags) ? tunnelConfig.tags : [],
                 folder: (tunnelConfig.folder?.trim()) || null,
-                isPinned: !!tunnelConfig.isPinned
+                isPinned: !!tunnelConfig.isPinned,
+                autoStart: !!tunnelConfig.autoStart
             };
 
             if (!cleanConfig.sourceIp || !cleanConfig.sourceUser || 
@@ -628,7 +638,8 @@ io.on('connection', (socket) => {
                     encryptedConfig,
                     userId,
                     cleanConfig.folder,
-                    cleanConfig.isPinned ? 1 : 0
+                    cleanConfig.isPinned ? 1 : 0,
+                    cleanConfig.autoStart ? 1 : 0
                 );
 
                 statements.addTunnelUser.run(tunnelId, userId);
@@ -741,6 +752,7 @@ io.on('connection', (socket) => {
                         name: tunnel.name,
                         folder: tunnel.folder,
                         isPinned: !!tunnel.isPinned,
+                        autoStart: !!tunnel.autoStart,
                         tags,
                         users: userIds,
                         createdBy: {
@@ -809,7 +821,8 @@ io.on('connection', (socket) => {
                 refreshInterval: tunnelConfig.refreshInterval || 10000,
                 tags: Array.isArray(tunnelConfig.tags) ? tunnelConfig.tags : [],
                 folder: (tunnelConfig.folder?.trim()) || tunnel.folder || null,
-                isPinned: tunnelConfig.isPinned !== undefined ? !!tunnelConfig.isPinned : !!tunnel.isPinned
+                isPinned: tunnelConfig.isPinned !== undefined ? !!tunnelConfig.isPinned : !!tunnel.isPinned,
+                autoStart: tunnelConfig.autoStart !== undefined ? !!tunnelConfig.autoStart : !!tunnel.autoStart
             };
 
             if (!cleanConfig.sourceIp || !cleanConfig.sourceUser || 
@@ -843,6 +856,7 @@ io.on('connection', (socket) => {
                     encryptedConfig,
                     cleanConfig.folder,
                     cleanConfig.isPinned ? 1 : 0,
+                    cleanConfig.autoStart ? 1 : 0,
                     tunnelId
                 );
 
@@ -1014,6 +1028,48 @@ io.on('connection', (socket) => {
         } catch (error) {
             logger.error('Tunnel deletion error:', error);
             callback({ error: `Tunnel deletion failed: ${error.message}` });
+        }
+    });
+
+    socket.on('getAutoStartTunnels', (callback) => {
+        try {
+            const autoStartTunnels = statements.findAutoStartTunnels.all();
+            
+            const tunnelsWithConfigs = [];
+            for (const tunnel of autoStartTunnels) {
+                try {
+                    const decryptedConfig = decryptData(tunnel.config, tunnel.createdBy, tunnel.sessionToken);
+                    if (!decryptedConfig) continue;
+                    
+                    const sourceSSHKey = statements.getSourceSSHKey.get(tunnel.id);
+                    const endpointSSHKey = statements.getEndpointSSHKey.get(tunnel.id);
+                    
+                    if (sourceSSHKey) {
+                        decryptedConfig.sourceAuthType = "key";
+                        decryptedConfig.sourceKeyType = sourceSSHKey.keyType;
+                        decryptedConfig.sourceKey = sourceSSHKey.keyData;
+                    }
+                    
+                    if (endpointSSHKey) {
+                        decryptedConfig.endPointAuthType = "key";
+                        decryptedConfig.endPointKeyType = endpointSSHKey.keyType;
+                        decryptedConfig.endPointKey = endpointSSHKey.keyData;
+                    }
+                    
+                    tunnelsWithConfigs.push({
+                        id: tunnel.id,
+                        name: tunnel.name,
+                        config: decryptedConfig
+                    });
+                } catch (error) {
+                    logger.error(`Failed to process auto-start tunnel ${tunnel.id}:`, error);
+                }
+            }
+            
+            callback({ success: true, tunnels: tunnelsWithConfigs });
+        } catch (error) {
+            logger.error('Error fetching auto-start tunnels:', error);
+            callback({ error: 'Failed to fetch auto-start tunnels' });
         }
     });
     
