@@ -11,7 +11,6 @@
 [![Tailwind CSS Badge](https://img.shields.io/badge/-TailwindCSS-38B2AC?style=flat-square&labelColor=black&logo=tailwindcss&logoColor=38B2AC)](#)
 [![Docker Badge](https://img.shields.io/badge/-Docker-2496ED?style=flat-square&labelColor=black&logo=docker&logoColor=2496ED)](#)
 [![SQLite Badge](https://img.shields.io/badge/SQLite-07405E?style=flat-square&labelColor=black&logo=sqlite&logoColor=white)](#)
-[![MUI Joy Badge](https://img.shields.io/badge/-MUI%20Joy-007FFF?style=flat-square&labelColor=black&logo=mui&logoColor=007FFF)](#)
 
 
 <br />
@@ -26,9 +25,6 @@ If you would like, you can support the project here!\
 # Overview
 Tunnelix is an open-source forever free self-hosted SSH tunnel management system designed to simplify the creation and management of SSH tunnels through an elegant web interface. It allows you to securely connect to remote servers and port forward local services through SSH tunnels from anywhere with a web browser.
 
-> [!WARNING]  
-> This app is in the VERY early stages of development. Expect bugs, data loss, and unexplainable issues! For that reason, I recommend you securely access Tunnelix through a VPN.
-
 # Features
 - User Management (authentication, guest access, admin controls)
 - SSH Tunnel Creation and Management
@@ -36,10 +32,7 @@ Tunnelix is an open-source forever free self-hosted SSH tunnel management system
 - Share Tunnels Between Users
 - Automatic Reconnection on Failure
 - Customizable Retry Settings
-
-# Planned Features
-- Public tunnel sharing with temporary URLs
-- Two-factor authentication
+- Auto-start Tunnels on Boot
 
 # Installation
 Visit the Tunnelix [Wiki](https://github.com/LukeGus/Tunnelix/wiki) for information on how to install Tunnelix. You can also use these links to go directly to guide. [Docker](https://github.com/LukeGus/Tunnelix/wiki/Docker) or [Manual](https://github.com/LukeGus/Tunnelix/wiki/Manual).

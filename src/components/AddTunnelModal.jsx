@@ -23,7 +23,8 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
             maxRetries: 3,
             retryInterval: 5000
         },
-        refreshInterval: 30000
+        refreshInterval: 30000,
+        autoStart: false
     };
     
     const [tunnelConfig, setTunnelConfig] = useState(initialFormState);
@@ -375,17 +376,17 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                     <div className="md:col-span-2">
                                         <label htmlFor="sourcePassword" className="block text-sm font-medium text-slate-300 mb-1">
                                             Source Password
-                                        </label>
+                                    </label>
                                         <div className="relative">
-                                            <input
+                                    <input
                                                 id="sourcePassword"
                                                 name="sourcePassword"
                                                 type={showSourcePassword ? "text" : "password"}
                                                 required={tunnelConfig.sourceAuthType === 'password'}
                                                 value={tunnelConfig.sourcePassword}
-                                                onChange={handleChange}
-                                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
                                             <button
                                                 type="button"
                                                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
@@ -432,7 +433,7 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                                 </label>
                                             </div>
                                             <p className="mt-1 text-xs text-slate-400">Upload your private key file (e.g., id_rsa, id_ed25519){sourceKey && <> - Detected <span className="font-medium text-blue-400">{tunnelConfig.sourceKeyType.toUpperCase()}</span> key</>}</p>
-                                        </div>
+                                </div>
                                     </>
                                 )}
                             </div>
@@ -509,17 +510,17 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                     <div className="md:col-span-2">
                                         <label htmlFor="endPointPassword" className="block text-sm font-medium text-slate-300 mb-1">
                                             Endpoint Password
-                                        </label>
+                                    </label>
                                         <div className="relative">
-                                            <input
+                                    <input
                                                 id="endPointPassword"
                                                 name="endPointPassword"
                                                 type={showEndpointPassword ? "text" : "password"}
                                                 required={tunnelConfig.endPointAuthType === 'password'}
                                                 value={tunnelConfig.endPointPassword}
-                                                onChange={handleChange}
-                                                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
                                             <button
                                                 type="button"
                                                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white"
@@ -566,7 +567,7 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                                 </label>
                                             </div>
                                             <p className="mt-1 text-xs text-slate-400">Upload your private key file (e.g., id_rsa, id_ed25519){endPointKey && <> - Detected <span className="font-medium text-blue-400">{tunnelConfig.endPointKeyType.toUpperCase()}</span> key</>}</p>
-                                        </div>
+                                </div>
                                     </>
                                 )}
                             </div>
@@ -620,6 +621,36 @@ export const AddTunnelModal = ({ onClose, onAdd }) => {
                                         onChange={handleChange}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
+                                </div>
+                                
+                                <div>
+                                    <label htmlFor="autoStart" className="block text-sm font-medium text-slate-300 mb-1">
+                                        Auto-start on boot
+                                    </label>
+                                    <div className="flex items-center h-[42px] px-3 bg-slate-700 border border-slate-600 rounded-md">
+                                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                                            <input 
+                                                id="autoStart" 
+                                                name="autoStart" 
+                                                type="checkbox" 
+                                                checked={tunnelConfig.autoStart}
+                                                onChange={(e) => {
+                                                    setTunnelConfig({
+                                                        ...tunnelConfig,
+                                                        autoStart: e.target.checked
+                                                    });
+                                                }}
+                                                className="absolute block w-6 h-6 rounded-full bg-white border-4 border-slate-700 appearance-none cursor-pointer focus:outline-none checked:right-0 checked:border-blue-500 transition-all duration-200"
+                                            />
+                                            <label 
+                                                htmlFor="autoStart" 
+                                                className="block overflow-hidden h-6 rounded-full bg-slate-600 cursor-pointer"
+                                            ></label>
+                                        </div>
+                                        <span className="text-slate-300">
+                                            {tunnelConfig.autoStart ? 'Enabled' : 'Disabled'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

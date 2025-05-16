@@ -2,6 +2,7 @@
 const socketIo = require("socket.io");
 const SSHClient = require("ssh2").Client;
 const { exec } = require("child_process");
+const io_client = require("socket.io-client");
 
 const server = http.createServer();
 const io = socketIo(server, {
@@ -17,6 +18,17 @@ const io = socketIo(server, {
     maxHttpBufferSize: 1e7,
     connectTimeout: 15000,
     transports: ['websocket', 'polling'],
+});
+
+// Connect to the database server to fetch auto-start tunnels
+const DB_SERVER_URL = process.env.DB_SERVER_URL || 'http://localhost:8081';
+const dbClient = io_client(DB_SERVER_URL, {
+    path: "/database.io/socket.io",
+    transports: ["websocket", "polling"],
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000
 });
 
 const logger = {
@@ -1170,6 +1182,126 @@ function resetRetryState(tunnelName) {
     logger.info(`Retry state fully reset for ${tunnelName}`);
 }
 
+// Function to auto-start tunnels marked for auto-start
+function initializeAutoStartTunnels() {
+    logger.info('Initializing auto-start tunnels...');
+    
+    try {
+        dbClient.removeAllListeners();
+        dbClient.disconnect();
+        dbClient.connect();
+        
+        logger.info('Connecting to database server to fetch auto-start tunnels...');
+        
+        // Add timeout for the DB connection
+        const connectionTimeout = setTimeout(() => {
+            logger.error('Timeout connecting to database server for auto-start tunnels');
+            retryAutoStartInit();
+        }, 10000);
+        
+        dbClient.once('connect', () => {
+            clearTimeout(connectionTimeout);
+            logger.info('Successfully connected to database server for auto-start tunnels');
+            
+            dbClient.emit('getAutoStartTunnels', (response) => {
+                try {
+                    if (response?.success && Array.isArray(response.tunnels)) {
+                        logger.info(`Found ${response.tunnels.length} tunnels marked for auto-start`);
+                        
+                        if (response.tunnels.length === 0) {
+                            logger.info('No auto-start tunnels found');
+                            return;
+                        }
+                        
+                        response.tunnels.forEach((tunnel, index) => {
+                            try {
+                                logger.info(`[${index + 1}/${response.tunnels.length}] Auto-starting tunnel: ${tunnel.name}`);
+                                
+                                if (!tunnel.config) {
+                                    logger.error(`No valid configuration found for tunnel: ${tunnel.name}`);
+                                    return;
+                                }
+                                
+                                // Check required config properties
+                                const requiredProps = [
+                                    'sourceIp', 'sourceUser', 'sourcePort', 
+                                    'endPointIp', 'endPointUser', 'endPointPort'
+                                ];
+                                
+                                const missingProps = requiredProps.filter(prop => !tunnel.config[prop]);
+                                if (missingProps.length > 0) {
+                                    logger.error(`Tunnel ${tunnel.name} is missing required configuration: ${missingProps.join(', ')}`);
+                                    return;
+                                }
+                                
+                                const hostConfig = { ...tunnel.config };
+                                hostConfig.name = tunnel.name;
+                                
+                                if (!global.hostConfigs) {
+                                    global.hostConfigs = new Map();
+                                }
+                                
+                                // Store in global config
+                                global.hostConfigs.set(tunnel.name, hostConfig);
+                                
+                                logger.info(`Starting connection for auto-start tunnel: ${tunnel.name}`);
+                                
+                                // Wait a bit between tunnel starts to avoid overwhelming the system
+                                setTimeout(() => {
+                                    try {
+                                        // Connect the tunnel
+                                        connectSSHTunnel(hostConfig, 0, null);
+                                        logger.info(`Auto-start request sent for tunnel: ${tunnel.name}`);
+                                    } catch (error) {
+                                        logger.error(`Failed to connect auto-start tunnel ${tunnel.name}:`, error);
+                                    }
+                                }, index * 2000); // 2 second delay between each tunnel start
+                            } catch (error) {
+                                logger.error(`Error processing auto-start tunnel ${tunnel?.name || 'unknown'}:`, error);
+                            }
+                        });
+                    } else {
+                        if (response?.error) {
+                            logger.error(`Failed to fetch auto-start tunnels: ${response.error}`);
+                        } else {
+                            logger.warn('Failed to fetch auto-start tunnels or none found');
+                        }
+                    }
+                } catch (error) {
+                    logger.error('Error processing auto-start tunnel response:', error);
+                } finally {
+                    // Disconnect after fetching the tunnels
+                    try {
+                        dbClient.disconnect();
+                    } catch (e) {}
+                }
+            });
+        });
+        
+        dbClient.once('connect_error', (error) => {
+            clearTimeout(connectionTimeout);
+            logger.error('Failed to connect to database server for auto-start tunnels:', error);
+            retryAutoStartInit();
+        });
+    } catch (error) {
+        logger.error('Error in auto-start tunnels initialization:', error);
+        retryAutoStartInit();
+    }
+}
+
+function retryAutoStartInit() {
+    logger.info('Retrying auto-start initialization in 10 seconds...');
+    setTimeout(() => {
+        initializeAutoStartTunnels();
+    }, 10000);
+}
+
+// Call the auto-start initialization after the server is running
 server.listen(8082, '0.0.0.0', () => {
     logger.info("SSH Tunnel Server running on port 8082");
+    
+    // Give the database server some time to be fully initialized
+    setTimeout(() => {
+        initializeAutoStartTunnels();
+    }, 5000);
 });

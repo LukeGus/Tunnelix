@@ -33,7 +33,8 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
             maxRetries: 3,
             retryInterval: 5000
         },
-        refreshInterval: 30000
+        refreshInterval: 30000,
+        autoStart: false
     });
 
     useEffect(() => {
@@ -654,6 +655,36 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         onChange={handleChange}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
+                                </div>
+                                
+                                <div>
+                                    <label htmlFor="autoStart" className="block text-sm font-medium text-slate-300 mb-1">
+                                        Auto-start on boot
+                                    </label>
+                                    <div className="flex items-center h-[42px] px-3 bg-slate-700 border border-slate-600 rounded-md">
+                                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                                            <input 
+                                                id="autoStart" 
+                                                name="autoStart" 
+                                                type="checkbox" 
+                                                checked={tunnelConfig.autoStart || false}
+                                                onChange={(e) => {
+                                                    setTunnelConfig({
+                                                        ...tunnelConfig,
+                                                        autoStart: e.target.checked
+                                                    });
+                                                }}
+                                                className="absolute block w-6 h-6 rounded-full bg-white border-4 border-slate-700 appearance-none cursor-pointer focus:outline-none checked:right-0 checked:border-blue-500 transition-all duration-200"
+                                            />
+                                            <label 
+                                                htmlFor="autoStart" 
+                                                className="block overflow-hidden h-6 rounded-full bg-slate-600 cursor-pointer"
+                                            ></label>
+                                        </div>
+                                        <span className="text-slate-300">
+                                            {tunnelConfig.autoStart ? 'Enabled' : 'Disabled'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
