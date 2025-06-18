@@ -2,7 +2,7 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/LukeGus/Tunnelix?style=flat&label=Stars)
 ![GitHub forks](https://img.shields.io/github/forks/LukeGus/Tunnelix?style=flat&label=Forks)
 ![GitHub Release](https://img.shields.io/github/v/release/LukeGus/Tunnelix?style=flat&label=Release)
-<a href="https://discord.gg/MUb6xuD7"><img alt="Discord" src="https://img.shields.io/discord/1372414265050398830"></a>
+<a href="https://discord.gg/jv4u9wJp"><img alt="Discord" src="https://img.shields.io/discord/1347374268253470720"></a>
 #### Top Technologies
 [![React Badge](https://img.shields.io/badge/-React-61DBFB?style=flat-square&labelColor=black&logo=react&logoColor=61DBFB)](#)
 [![Javascript Badge](https://img.shields.io/badge/-Javascript-F0DB4F?style=flat-square&labelColor=black&logo=javascript&logoColor=F0DB4F)](#)
