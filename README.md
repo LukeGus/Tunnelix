@@ -2,7 +2,7 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/LukeGus/Tunnelix?style=flat&label=Stars)
 ![GitHub forks](https://img.shields.io/github/forks/LukeGus/Tunnelix?style=flat&label=Forks)
 ![GitHub Release](https://img.shields.io/github/v/release/LukeGus/Tunnelix?style=flat&label=Release)
-<a href="https://discord.gg/jv4u9wJp"><img alt="Discord" src="https://img.shields.io/discord/1347374268253470720"></a>
+<a href="https://discord.gg/jVQGdvHDrf"><img alt="Discord" src="https://img.shields.io/discord/1347374268253470720"></a>
 #### Top Technologies
 [![React Badge](https://img.shields.io/badge/-React-61DBFB?style=flat-square&labelColor=black&logo=react&logoColor=61DBFB)](#)
 [![Javascript Badge](https://img.shields.io/badge/-Javascript-F0DB4F?style=flat-square&labelColor=black&logo=javascript&logoColor=F0DB4F)](#)
@@ -38,7 +38,7 @@ Tunnelix is an open-source forever free self-hosted SSH tunnel management system
 Visit the Tunnelix [Wiki](https://github.com/LukeGus/Tunnelix/wiki) for information on how to install Tunnelix. You can also use these links to go directly to guide. [Docker](https://github.com/LukeGus/Tunnelix/wiki/Docker) or [Manual](https://github.com/LukeGus/Tunnelix/wiki/Manual).
 
 # Support
-If you need help with Tunnelix, you can join the [Discord](https://discord.gg/MUb6xuD7) server and visit the support channel. You can also open an issue or open a pull request on the [GitHub](https://github.com/LukeGus/Tunnelix/issues) repo. If you would like to support me financially, you can on [Paypal](https://paypal.me/LukeGustafson803).
+If you need help with Tunnelix, you can join the [Discord](https://discord.gg/jVQGdvHDrf) server and visit the support channel. You can also open an issue or open a pull request on the [GitHub](https://github.com/LukeGus/Tunnelix/issues) repo. If you would like to support me financially, you can on [Paypal](https://paypal.me/LukeGustafson803).
 
 # Show-off
 
