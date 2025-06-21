@@ -240,6 +240,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.sourcePort}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                                     />
                                 </div>
@@ -261,6 +262,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.endPointPort}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                                     />
                                 </div>
@@ -361,6 +363,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.sourceSSHPort}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
@@ -500,6 +503,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.endPointSSHPort}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
@@ -623,6 +627,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.retryConfig?.maxRetries || 3}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
@@ -638,6 +643,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.retryConfig?.retryInterval || 5000}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
@@ -653,6 +659,7 @@ export const EditTunnelModal = ({ onClose, onSave, tunnelData }) => {
                                         required
                                         value={tunnelConfig.refreshInterval || 30000}
                                         onChange={handleChange}
+                                        onWheel={(e) => e.target.blur()}
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
